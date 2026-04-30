@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>MaxGPA — Upload</title>
+</head>
+<body>
+  <h2>Upload Grade Distribution CSV</h2>
+
+  <label for="file-upload">Upload csv file:</label>
+  <input type="file" id="file-upload" name="file-upload" accept=".csv">
+  <br><br>
+  <button id="submit-btn">Submit</button>
+
+  <p id="status"></p>
+
+  <script>
+    document.getElementById('submit-btn').addEventListener('click', function (e) {
+      e.preventDefault();
+
+      const fileInput = document.getElementById('file-upload');
+      const statusEl  = document.getElementById('status');
+
+      if (!fileInput.files || fileInput.files.length === 0) {
+        statusEl.textContent = 'Please select a CSV file first.';
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      //disable button while uploading
+      this.disabled = true;
+      statusEl.textContent = 'Uploading…';
+
+      fetch('/upload-endpoint', { method: 'POST', body: formData })
+        .then(response => {
+          //response is a text/event-stream
+          //it's just so the viewer of the page doesn't look at nothing
+          //while the file is being uploaded and parsed
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          function read() {
+            reader.read().then(({ done, value }) => {
+              if (done) return;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop(); // keep incomplete last line
+
+              for (const line of lines) {
+                if (!line.startsWith('data: ')) continue;
+                try {
+                  const msg = JSON.parse(line.slice(6));
+                  statusEl.textContent =
+                    `Processed ${msg.rows.toLocaleString()} rows, inserted ${msg.inserted.toLocaleString()} documents…`;
+
+                  if (msg.done) {
+                    statusEl.textContent =
+                      `Done! Inserted ${msg.inserted.toLocaleString()} documents from ${msg.rows.toLocaleString()} rows.`;
+                    return;
+                  }
+                } catch (_) {}
+              }
+              read();
+            });
+          }
+          read();
+        })
+        .catch(err => {
+          console.error(err);
+          statusEl.textContent = 'Error submitting file.';
+          document.getElementById('submit-btn').disabled = false;
+        });
+    });
+  </script>
+</body>
+</html>
