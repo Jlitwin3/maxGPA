@@ -1,3 +1,15 @@
+"""
+Created by: Dennis Hulett
+
+this file sets up the mongoDB database that is used to store
+and retrieve information to display on our main user page.
+it connects to adminindex.html, which is there so the user
+can upload the csv file, and then parses the uploaded csv file
+and stores the relevant information for our 3 selected majors 
+into the database. to see relevant major data, explore the subjects.py
+file and the readme inside the database file.
+"""
+
 import os
 import csv
 import io
@@ -46,11 +58,31 @@ BATCH_SIZE = 1000 #accumulates batch size # of lines before pushing to db to sav
 def index():
     return render_template("adminindex.html")
 
+@app.route('/upload-endpoint', methods=['POST'])
+def submit():
+    """
+    function (that contains a smaller function) to submit csv
+    file data into the database
+    """
+    app.logger.debug("Submit to Mongo")
+
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    file = request.files['file']
+    if not file.filename.endswith('.csv'):
+        return jsonify({"error": "File must be a .csv"}), 400
+    file_content = file.stream.read().decode('utf-8')
+
+    return Response(generate(file_content), mimetype='text/event-stream')
+
+
 """   DATABASE FUNCTIONS   """
 
 def parse_grade(value):
     """converts a grade value to int; if the line has no
-    grade dist ('*') then it returns none to skip that line"""
+    grade dist ('*') then it returns none to skip that line.
+    if parse_grade is sent "4", it will return 4"""
     value = value.strip()
     if value == '*' or value == '':
         return None
@@ -65,6 +97,9 @@ def condense_grades(row):
     returns none if parse grade returns none, since that means
     there are no grades in that line in the csv file
     and the line should be skipped
+
+    a line in the csv that reads "[rest of info...] 0,4,6,3,3,2,1,0,2,0,0,0,1,0,0,0,3,22"
+    will be sent to this function and return {A:10, B:8, C:3, DNF:1}
     """
     result = {}
     for letter, fields in GRADE_GROUPS.items():
@@ -79,7 +114,7 @@ def condense_grades(row):
 
 def flush(batch, key):
     """adds batch of documents to collection using key
-    and returns length to update lines read"""
+    and returns # of documents inserted to update lines read"""
     docs = list(batch.values())
     if not docs:
         return 0
@@ -90,96 +125,84 @@ def flush(batch, key):
     except Exception as e:
         app.logger.error(f"Batch insert error: {e}")
         return 0
-
-@app.route('/upload-endpoint', methods=['POST'])
-def submit():
-    app.logger.debug("Submit to Mongo")
-
-    if 'file' not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
-
-    file = request.files['file']
-    if not file.filename.endswith('.csv'):
-        return jsonify({"error": "File must be a .csv"}), 400
-    file_content = file.stream.read().decode('utf-8')
     
-    def generate():
-        '''
-        parses each line in the csv into a document and then inserts them into
-        the applicable collection in the database in batches
-        '''
-        reader = csv.DictReader(io.StringIO(file_content))
-        rows_read = 0
-        total_inserted = 0
+def generate(file_content):
+    '''
+    parses each line in the csv into a document and then inserts them into
+    the applicable collection in the database in batches. returns nothing
+    '''
+    reader = csv.DictReader(io.StringIO(file_content))
+    rows_read = 0
+    total_inserted = 0
 
-        #three dicts for each collection and a dict to store keys for each dict
-        csbatch = {}
-        babatch = {}
-        mathbatch = {}
-        BATCH = {
-            "CS_major" : csbatch,
-            "BA_major" : babatch,
-            "MATH_major" : mathbatch
-        }
+    #three dicts for each collection and a dict to store keys for each dict
+    csbatch = {}
+    babatch = {}
+    mathbatch = {}
+    BATCH = {
+        "CS_major" : csbatch,
+        "BA_major" : babatch,
+        "MATH_major" : mathbatch
+    }
 
-        app.logger.debug(f"PARSING CSV FILE...")
+    app.logger.debug(f"PARSING CSV FILE...")
 
-        for row in reader:
-            skip = True
-            db_insert = []
-            rows_read += 1
-            term       = row["TERM"].strip()
-            term_desc  = row["TERM_DESC"].strip()
-            subj       = row["SUBJ"].strip()
-            numb       = row["NUMB"].strip()
-            crn        = row["CRN"].strip()
-            instructor = row["INSTRUCTOR"].strip()    
+    for row in reader:
+        skip = True
+        db_insert = []
+        rows_read += 1
+        # below: stripping each part of the csv line contents
+        term       = row["TERM"].strip()
+        term_desc  = row["TERM_DESC"].strip()
+        subj       = row["SUBJ"].strip()
+        numb       = row["NUMB"].strip()
+        crn        = row["CRN"].strip()
+        instructor = row["INSTRUCTOR"].strip()    
 
-            for item in SUBJ_GROUPS:
-                if subj in item:
-                        if numb in item[subj]:
-                            skip = False
-                            db_insert.append(item["NAME"]) 
-                #"NAME" found in subjects.py is the major it falls under (eg "CS_major"); a class
-                #can hypothetically fall under multiple majors so it would get added to both collections
-            if skip:
-                continue #skips line: class is not part of majors
+        for item in SUBJ_GROUPS:
+            if subj in item:
+                    if numb in item[subj]:
+                        skip = False
+                        db_insert.append(item["NAME"]) 
+            #"NAME" found in subjects.py is the major it falls under (eg "CS_major") which is
+            # then used as a key to know which collection batch to put the document in; a class
+            #can hypothetically fall under multiple majors so it would get added to both collections
+        if skip:
+            continue #skips line: class is not part of majors
 
-            grade_dist = condense_grades(row)
-            if grade_dist == None:
-                continue #skips line: no grade distribution to read from
+        grade_dist = condense_grades(row)
+        if grade_dist == None:
+            continue #skips line: no grade distribution to read from
 
-            instructor_entry = {"crn": crn, "name": instructor, "grades": grade_dist}
-            key = (term, subj, numb)
+        instructor_entry = {"crn": crn, "name": instructor, "grades": grade_dist}
+        key = (term, subj, numb) #each needed to best match same-term classes taught by differnt profs
 
-            for item in db_insert:
-                if key not in BATCH[item]: 
-                    #BATCH[item] points to the three dicts related to each major (eg: csbatch)
-                    BATCH[item][key] = {
-                        "term": term, 
-                        "major": subj,
-                        "class": numb,
-                        "professors": [instructor_entry]
-                    }
-                else:
-                    BATCH[item][key]["professors"].append(instructor_entry)
-            
-            for item in db_insert:
-                if rows_read % BATCH_SIZE == 0:
-                    n = flush(BATCH[item], item) #sends data to db in bulk
-                    total_inserted += n
-                    BATCH[item] = {}
-                    app.logger.debug(f"FLUSHED {item}")
-                    yield f"data: {json.dumps({'rows': rows_read, 'inserted': total_inserted})}\n\n"
-
-        # flush any remaining rows
         for item in db_insert:
-            n = flush(BATCH[item], item)
-            total_inserted += n
-        app.logger.debug("DONE")
-        yield f"data: {json.dumps({'rows': rows_read, 'inserted': total_inserted, 'done': True})}\n\n"
+            if key not in BATCH[item]: 
+                #BATCH[item] points to the three dicts related to each major (eg: csbatch)
+                BATCH[item][key] = {
+                    "term": term, 
+                    "major": subj,
+                    "class": numb,
+                    "professors": [instructor_entry]
+                }
+            else:
+                BATCH[item][key]["professors"].append(instructor_entry)
+        
+        for item in db_insert:
+            if rows_read % BATCH_SIZE == 0:
+                n = flush(BATCH[item], item) #sends data to db in bulk
+                total_inserted += n
+                BATCH[item] = {}
+                app.logger.debug(f"FLUSHED {item}")
+                yield f"data: {json.dumps({'rows': rows_read, 'inserted': total_inserted})}\n\n"
 
-    return Response(generate(), mimetype='text/event-stream')
+    # flush any remaining rows
+    for item in db_insert:
+        n = flush(BATCH[item], item)
+        total_inserted += n
+    app.logger.debug("DONE")
+    yield f"data: {json.dumps({'rows': rows_read, 'inserted': total_inserted, 'done': True})}\n\n"
 
 
 if __name__ == "__main__":
