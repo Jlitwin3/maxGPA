@@ -1,5 +1,6 @@
 // Constant list of academic terms used to build the schedule grid
 const TERMS = ["Fall", "Winter", "Spring", "Summer"];
+const API_BASE = window.location.protocol === "file:" ? "http://localhost:5000" : "";
 
 // Global application state object
 const state = {
@@ -8,8 +9,10 @@ const state = {
   selectedMajor: "",             // Currently selected major ID
   startYear: "",                 // Selected start year
   endYear: "",                   // Selected end year
-  availableYears: ["AY16", "AY17", "AY18", "AY19", "AY20", "AY21", "AY22", "AY23"], // All selectable academic years
+  availableYears: [],            // All selectable academic years
   requiredCourses: [],           // Courses required for the selected major
+  report: null,                  // Latest API report for the selected major/year range
+  courseInstructors: new Map(),  // Instructor data keyed by subject-number
   schedule: [],                  // Generated schedule grid data structure
   selectedSlot: null,            // Currently selected grid cell
   sidePanelOpen: true            // Tracks whether the graph side panel is open
@@ -26,66 +29,76 @@ function cacheElements() {
   els.sidePanel = document.getElementById("side-panel");
 }
 
-// Simulated API call that returns available majors
+async function fetchJson(path, options = {}) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    },
+    ...options
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody.error || `Request failed: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+// API call that returns available majors
 async function fetchMajors() {
-  return [
-    { id: "cs-ba", name: "Computer Science BA" },
-    { id: "business-ba", name: "Business Administration BA" },
-    { id: "psychology-ba", name: "Psychology BA" }
-  ];
+  const majors = await fetchJson("/majors");
+  return majors.map((major) => ({
+    id: major.id || major.key,
+    name: major.name || major.label || major.id || major.key
+  }));
 }
 
-// Simulated API call that returns required courses for the selected major
-async function fetchRequiredCourses(majorId) {
-  const coursesByMajor = {
-    "cs-ba": [
-      { subject: "CS", number: "122", title: "Introduction to Programming and Problem Solving" },
-      { subject: "CS", number: "210", title: "Computer Science I" },
-      { subject: "CS", number: "211", title: "Computer Science II" },
-      { subject: "CS", number: "313", title: "Intermediate Data Structures" },
-      { subject: "CS", number: "315", title: "Algorithms" },
-      { subject: "CS", number: "422", title: "Software Methodologies" },
-      { subject: "MATH", number: "251", title: "Calculus I" },
-      { subject: "MATH", number: "252", title: "Calculus II" }
-    ],
-
-    "business-ba": [
-      { subject: "BA", number: "101Z", title: "Introduction to Business" },
-      { subject: "EC", number: "201", title: "Principles of Microeconomics" },
-      { subject: "EC", number: "202", title: "Principles of Macroeconomics" },
-      { subject: "MATH", number: "241", title: "Calculus for Business and Social Science I" }
-    ],
-
-    "psychology-ba": [
-      { subject: "PSY", number: "201", title: "Mind and Brain" },
-      { subject: "PSY", number: "202", title: "Mind and Society" },
-      { subject: "PSY", number: "302", title: "Statistical Methods in Psychology" },
-      { subject: "PSY", number: "304", title: "Research Methods in Psychology" }
-    ]
-  };
-
-  return coursesByMajor[majorId] || [];
+async function fetchAvailableYears(majorId) {
+  return fetchJson(`/years/${encodeURIComponent(majorId)}`);
 }
 
-// Simulated API call that returns instructors and grade distributions for a course
+// API call that returns the full report for the selected major/year range
+async function fetchRequiredCourses(majorId, startYear, endYear) {
+  const report = await fetchJson("/report", {
+    method: "POST",
+    body: JSON.stringify({
+      major: majorId,
+      start_ay: startYear,
+      end_ay: endYear
+    })
+  });
+
+  state.report = report;
+  state.courseInstructors = new Map();
+
+  return report.courses.map((course) => {
+    const normalizedCourse = {
+      subject: course.subject,
+      number: course.number,
+      title: course.course_id,
+      courseId: course.course_id
+    };
+
+    state.courseInstructors.set(
+      getCourseKey(normalizedCourse),
+      course.instructors.map((instructor) => ({
+        crn: instructor.instructor,
+        name: instructor.instructor,
+        grades: instructor.grades,
+        averageGpa: instructor.average_gpa,
+        graph: instructor.graph
+      }))
+    );
+
+    return normalizedCourse;
+  });
+}
+
+// Return instructors and grade distributions for a course from the latest report
 async function fetchCourseInstructors(course) {
-  return [
-    {
-      crn: "12345",
-      name: "Smith",
-      grades: { A: 42, B: 31, C: 16, DNF: 5 }
-    },
-    {
-      crn: "23456",
-      name: "Patel",
-      grades: { A: 35, B: 37, C: 18, DNF: 8 }
-    },
-    {
-      crn: "34567",
-      name: "Wang",
-      grades: { A: 50, B: 25, C: 12, DNF: 4 }
-    }
-  ];
+  return state.courseInstructors.get(getCourseKey(course)) || [];
 }
 
 // Render the initial buttons for choosing student or admin mode
@@ -177,8 +190,17 @@ async function generateGridFromSelection() {
     return;
   }
 
-  // Load the required courses for the selected major
-  state.requiredCourses = await fetchRequiredCourses(state.selectedMajor);
+  // Load the required courses and instructor data from the Flask report API
+  try {
+    state.requiredCourses = await fetchRequiredCourses(
+      state.selectedMajor,
+      state.startYear,
+      state.endYear
+    );
+  } catch (error) {
+    alert(error.message);
+    return;
+  }
 
   // Create a list of years included in the selected range
   const selectedYears = state.availableYears.slice(startIndex, endIndex + 1);
@@ -199,14 +221,9 @@ async function generateGridFromSelection() {
 
   // Render the generated plan UI
   renderGrid();
-renderSelectionArea();
-renderGraphPanel();
-
-state.selectedMajor = "";
-state.startYear = "";
-state.endYear = "";
-
-renderControls();
+  renderSelectionArea();
+  renderGraphPanel();
+  renderControls();
   }
 
 
@@ -306,9 +323,35 @@ function renderGraphPanel() {
   // Show the side panel when open
   els.sidePanel.classList.remove("collapsed");
 
+  const selectedCourse = state.selectedSlot
+    ? state.schedule[state.selectedSlot.rowIndex].terms[state.selectedSlot.colIndex].course
+    : null;
+
+  if (!selectedCourse) {
+    els.sidePanel.innerHTML = `
+      <h2>Grade Distribution Graphs</h2>
+      <p>Select a scheduled course to view instructor graphs.</p>
+    `;
+    return;
+  }
+
+  const instructors = state.courseInstructors.get(getCourseKey(selectedCourse)) || [];
+
   els.sidePanel.innerHTML = `
-    <h2>Grade Distribution Graphs</h2>
-    <p>Graphs will appear here later.</p>
+    <h2>${selectedCourse.subject} ${selectedCourse.number}</h2>
+    ${instructors.length === 0
+      ? "<p>No grade data is available for this course.</p>"
+      : instructors
+        .map((instructor) => `
+          <section class="graph-block">
+            <h3>${instructor.name}</h3>
+            <p>Average GPA: ${instructor.averageGpa ?? "N/A"}</p>
+            ${instructor.graph
+              ? `<img alt="${instructor.name} grade distribution" src="data:image/png;base64,${instructor.graph}">`
+              : ""}
+          </section>
+        `)
+        .join("")}
   `;
 }
 
@@ -435,6 +478,7 @@ async function renderInstructorPanel(rowIndex, colIndex) {
           </label>
 
           <div>
+            GPA: ${instructor.averageGpa ?? "N/A"},
             A: ${instructor.grades.A},
             B: ${instructor.grades.B},
             C: ${instructor.grades.C},
@@ -478,16 +522,26 @@ function handleUserSelectClick(event) {
     state.sidePanelOpen = true;
     renderControls();
   } else {
-    renderAdminPlaceholder();
+    window.location.href = "/admin";
   }
 }
 
 // Handle dropdown changes in the controls area
-function handleControlsChange(event) {
+async function handleControlsChange(event) {
   // Update selected major and reset any generated plan
   if (event.target.id === "major-select") {
     state.selectedMajor = event.target.value;
+    state.startYear = "";
+    state.endYear = "";
+    state.availableYears = [];
     resetStudentPlan();
+    if (state.selectedMajor) {
+      try {
+        state.availableYears = await fetchAvailableYears(state.selectedMajor);
+      } catch (error) {
+        alert(error.message);
+      }
+    }
     renderControls();
   }
 
@@ -529,6 +583,7 @@ function handleGridClick(event) {
   };
 
   renderSelectionArea();
+  renderGraphPanel();
 }
 
 // Handle dropdown and radio button changes inside the grid area
@@ -553,6 +608,7 @@ function handleGridChange(event) {
     renderGrid();
     state.selectedSlot = { rowIndex, colIndex };
     renderSelectionArea();
+    renderGraphPanel();
   }
 
   // Handle instructor radio button selection
@@ -569,6 +625,7 @@ function handleGridChange(event) {
 
     // Store selected instructor in the schedule
     state.schedule[rowIndex].terms[colIndex].instructor = selectedInstructor;
+    renderGraphPanel();
   }
 }
 
@@ -586,6 +643,7 @@ function handleGridButtonClick(event) {
     renderGrid();
     state.selectedSlot = { rowIndex, colIndex };
     renderSelectionArea();
+    renderGraphPanel();
   }
 }
 
@@ -602,7 +660,11 @@ function attachEvents() {
 // Initialize the application after the page loads
 async function init() {
   cacheElements();
-  state.majors = await fetchMajors();
+  try {
+    state.majors = await fetchMajors();
+  } catch (error) {
+    els.controls.innerHTML = `<p>${error.message}</p>`;
+  }
   renderUserSelect();
   attachEvents();
   els.sidePanel.classList.add("collapsed");

@@ -1,0 +1,267 @@
+MaxGPA Flask App Architecture
+=============================
+
+Main entrypoint
+---------------
+The integrated Flask app lives in:
+
+  Flask/app.py
+
+Run it locally with:
+
+  Flask/.venv/bin/python Flask/app.py
+
+Run the full Docker stack from the repo root with:
+
+  docker compose up --build
+
+The Docker stack starts:
+
+  db              MongoDB 4.4
+  maxgpa-service  Flask/app.py
+
+
+Top-level routing
+-----------------
+Flask/app.py serves both the browser UI and the JSON API.
+
+Browser pages:
+
+  GET /        -> serves interface/index.html
+  GET /app.js  -> serves interface/app.js
+  GET /style.css -> serves interface/style.css
+  GET /admin   -> serves Database/templates/adminindex.html
+
+API routes:
+
+  GET /health
+  GET /majors
+  GET /years/<major_key>
+  POST /report
+
+CSV upload routes used by the admin page:
+
+  POST /upload-prev
+  POST /upload-endpoint
+  POST /degree-prev
+  POST /upload-dg-endpoint
+
+Lower-level data routes:
+
+  GET/POST /majors/<major_key>/courses
+  GET /majors/<major_key>/courses/<subject>/<class_number>
+  GET /majors/<major_key>/courses/<subject>/<class_number>/terms
+  GET /majors/<major_key>/courses/<subject>/<class_number>/professors
+  GET /majors/<major_key>/courses/<subject>/<class_number>/grade-distribution
+  GET /majors/<major_key>/courses/<subject>/<class_number>/best-professors
+  GET /professors/<professor_name>/courses
+  GET /professors/<professor_name>/grade-summary
+  POST /import/<major_key>
+
+
+Frontend connection
+-------------------
+The student/admin chooser is in:
+
+  interface/index.html
+  interface/app.js
+  interface/style.css
+
+When the user opens /, Flask serves interface/index.html.
+
+interface/app.js calls Flask API routes directly:
+
+  fetchMajors()          -> GET /majors
+  fetchAvailableYears()  -> GET /years/<major>
+  fetchRequiredCourses() -> POST /report
+
+The Admin button redirects to:
+
+  /admin
+
+
+Admin upload connection
+-----------------------
+The admin upload page is:
+
+  Database/templates/adminindex.html
+
+Flask/app.py serves it at:
+
+  GET /admin
+
+The admin page sends grade CSVs to:
+
+  POST /upload-prev      preview first usable grade row
+  POST /upload-endpoint  import grade CSV into MongoDB
+
+The admin page sends degree plan CSVs to:
+
+  POST /degree-prev        preview first degree plan row
+  POST /upload-dg-endpoint import degree plan CSV into MongoDB
+
+Database/db.py still exists as the older standalone admin app, but the integrated
+app now copies the needed upload behavior into Flask/app.py. The current main app
+does not import Database/db.py.
+
+
+MongoDB connection
+------------------
+Flask/app.py connects to Mongo using:
+
+  MONGO_URI
+  MONGO_DB_NAME
+
+If MONGO_URI is not set, it builds one from:
+
+  DB_PORT_27017_TCP_ADDR
+
+or falls back to localhost.
+
+Docker Compose sets:
+
+  MONGO_URI=mongodb://db:27017/
+  MONGO_DB_NAME=maxGPAdb
+
+The main database name is:
+
+  maxGPAdb
+
+Expected collections:
+
+  cs
+  ba
+  math
+  plan
+
+
+Grade CSV upload schema
+-----------------------
+Grade CSV upload creates documents in cs, ba, and/or math depending on the
+required-course mappings in Database/subjects.py.
+
+Inserted course documents look like:
+
+  {
+    "term": "202203",
+    "major": "MATH",
+    "class": "252",
+    "professors": [
+      {
+        "crn": "33730",
+        "name": "Professor Name",
+        "grades": {
+          "A": 10,
+          "B": 8,
+          "C": 3,
+          "DNF": 1
+        }
+      }
+    ]
+  }
+
+Grades are condensed from plus/plain/minus columns:
+
+  A   = AP + A + AM
+  B   = BP + B + BM
+  C   = CP + C + CM
+  DNF = DP + D + DM + F
+
+
+Degree plan upload schema
+-------------------------
+Degree plan CSV upload inserts documents into:
+
+  plan
+
+Inserted documents look like:
+
+  {
+    "term": "1",
+    "year": "1",
+    "major": "MATH",
+    "class": "252",
+    "title": "Integral Calculus"
+  }
+
+
+logic.py connection
+-------------------
+Flask/app.py imports:
+
+  get_available_years
+  get_full_major_report
+
+from:
+
+  logic.py
+
+/years/<major_key> calls:
+
+  get_available_years(major_id)
+
+/report calls:
+
+  get_full_major_report(major_id, start_ay, end_ay)
+
+Flask/app.py accepts frontend-friendly major keys like:
+
+  cs
+  business_admin
+  math
+  CS_major
+  BA_major
+  MATH_major
+
+and converts them into the logic.py keys:
+
+  CS_major
+  BA_major
+  MATH_major
+
+
+subjects.py connection
+----------------------
+Required course definitions live in:
+
+  Database/subjects.py
+
+Both Flask/app.py and logic.py use these mappings.
+
+The upload code uses them to decide which Mongo collection a CSV row belongs in.
+For example, if a row is MATH 252 and that course is required for CS, it is
+inserted into the cs collection.
+
+logic.py uses them to decide which courses should appear in a full major report.
+
+
+Report generation flow
+----------------------
+The normal student flow is:
+
+  1. Browser opens /
+  2. interface/app.js loads majors from GET /majors
+  3. User selects a major
+  4. interface/app.js loads years from GET /years/<major>
+  5. User selects start/end years
+  6. interface/app.js calls POST /report
+  7. Flask/app.py calls logic.get_full_major_report()
+  8. logic.py queries MongoDB for required courses and terms
+  9. logic.py ranks instructors by average GPA
+  10. logic.py generates base64 grade distribution graphs
+  11. Flask returns the report JSON to the browser
+  12. interface/app.js renders courses, instructors, GPAs, grades, and graphs
+
+
+Important current assumptions
+-----------------------------
+MongoDB must already contain uploaded grade data before student plans can show
+real instructor/graph information.
+
+The uploaded grade documents store term and class values as strings. Any query
+that converts them to integers can fail to match real uploaded data.
+
+Docker Compose should be run from the repo root, not the Database folder.
+
+The old Database/db.py standalone app is retained for reference, but Flask/app.py
+is the integrated application entrypoint.

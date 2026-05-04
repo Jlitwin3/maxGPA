@@ -14,30 +14,6 @@ import app as flask_app
 
 
 class TestDatabaseData(unittest.TestCase):
-    TEST_DOCUMENT = {
-        "_test_case": "testDatabaseData",
-        "term": 202203,
-        "major": "MATH",
-        "class": 252,
-        "professors": [
-            {
-                "crn": 33730,
-                "name": "Hu, Yang",
-                "grades": {"A": 10, "B": 8, "C": 3, "DNF": 1},
-            }
-        ],
-    }
-
-    @classmethod
-    def setUpClass(cls):
-        cls.collection = flask_app.get_major_collection("cs")
-        cls.collection.delete_many({"_test_case": "testDatabaseData"})
-        cls.collection.insert_one(dict(cls.TEST_DOCUMENT))
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.collection.delete_many({"_test_case": "testDatabaseData"})
-
     def setUp(self):
         flask_app.app.config["TESTING"] = True
         self.client = flask_app.app.test_client()
@@ -61,7 +37,7 @@ class TestDatabaseData(unittest.TestCase):
         course_document = None
         course_major_key = None
         for major_key, collection in flask_app.get_all_major_collections().items():
-            course_document = collection.find_one({"_test_case": "testDatabaseData"})
+            course_document = collection.find_one({})
             if course_document is not None:
                 course_major_key = major_key
                 break
@@ -80,10 +56,10 @@ class TestDatabaseData(unittest.TestCase):
         for major_key, collection in flask_app.get_all_major_collections().items():
             source_document = collection.find_one(
                 {
-                    "_test_case": "testDatabaseData",
                     "major": {"$exists": True},
                     "class": {"$exists": True},
                     "term": {"$exists": True},
+                    "professors": {"$exists": True, "$type": "array"},
                 }
             )
             if source_document is not None:

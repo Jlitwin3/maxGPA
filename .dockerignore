@@ -1,0 +1,10 @@
+.git
+.venv
+Flask/.venv
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+.DS_Store
+test_graph.png
+test_all_instructors_graph.png

@@ -22,8 +22,12 @@ import ast, re
 app = Flask(__name__)
 
 #database setup
-client = MongoClient(os.environ['DB_PORT_27017_TCP_ADDR'], 27017)
-db = client.maxGPAdb
+MONGO_HOST = os.getenv("DB_PORT_27017_TCP_ADDR", "localhost")
+MONGO_URI = os.getenv("MONGO_URI", f"mongodb://{MONGO_HOST}:27017/")
+MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "maxGPAdb")
+
+client = MongoClient(MONGO_URI)
+db = client[MONGO_DB_NAME]
 
 #collections
 CS_major = db["cs"]
@@ -94,7 +98,7 @@ def dgsubmit():
         return jsonify({"error": "File must be a .csv"}), 400
     file_content = file.stream.read().decode('utf-8')
 
-    return Response(dgupload(file_content))
+    return dgupload(file_content)
 
 @app.route('/upload-prev', methods=['POST'])
 def plan_preview():
@@ -192,6 +196,7 @@ def dgupload(file_content):
     since no lines are being skipped.
     '''
     reader = csv.DictReader(io.StringIO(file_content))
+    inserted = 0
     for row in reader:
         term       = row["TERM"].strip() #course term (eg: 1)
         subj       = row["SUBJ"].strip() #class subject (eg: MATH)
@@ -205,8 +210,9 @@ def dgupload(file_content):
                     "class": numb,
                     "title": title
                 }
-        degreeplans.insert_one(result, ordered=False)
-    return
+        degreeplans.insert_one(result)
+        inserted += 1
+    return jsonify({"inserted": inserted})
 
 def parse_grade(value):
     """converts a grade value to int; if the line has no
@@ -214,6 +220,8 @@ def parse_grade(value):
     returns none to skip that line.
     ex: if parse_grade is sent "4", it will return 4
     """
+    if value is None:
+        return None
     value = value.strip()
     if value == '*' or value == '':
         return None
@@ -234,9 +242,9 @@ def condense_grades(row):
     """
     result = {} #dict to store grade/number pairs
     for letter, fields in GRADE_GROUPS.items():
+        values = [] #stores number of each grade
         for f in fields: #fields: [AP, A, AM] for example. f would just be AP
-            values = [] #stores number of each grade 
-            value = parse_grade(row[f])
+            value = parse_grade(row.get(f))
             if value == None:
                 return None #no grade dist, return none to skip line
             values.append(value)
@@ -328,9 +336,11 @@ def generate(file_content):
                 app.logger.debug(f"FLUSHED {item}")
                 yield f"data: {json.dumps({'rows': rows_read, 'inserted': total_inserted})}\n\n"
 
-    # flush any remaining rows
-    for item in db_insert:
-        n = flush(BATCH[item], item)
+    # flush any remaining rows for every major, not only the last row's majors
+    for item, batch in BATCH.items():
+        if not batch:
+            continue
+        n = flush(batch, item)
         total_inserted += n
     app.logger.debug("DONE")
     yield f"data: {json.dumps({'rows': rows_read, 'inserted': total_inserted, 'done': True})}\n\n"

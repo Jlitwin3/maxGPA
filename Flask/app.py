@@ -1,13 +1,31 @@
+import csv
+import io
+import json
 import os
 import sys
 
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, render_template, request, send_from_directory
 from pymongo import MongoClient
+from pymongo.errors import BulkWriteError
 
-sys.path.append("..")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATABASE_DIR = os.path.join(BASE_DIR, "Database")
+INTERFACE_DIR = os.path.join(BASE_DIR, "interface")
+sys.path.append(BASE_DIR)
+sys.path.append(DATABASE_DIR)
+
 from logic import get_available_years, get_full_major_report
+from subjects import BA, CS, MATH
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder=os.path.join(DATABASE_DIR, "templates"))
+
+
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return response
 
 MONGO_HOST = os.getenv("DB_PORT_27017_TCP_ADDR", "localhost")
 MONGO_URI = os.getenv("MONGO_URI", f"mongodb://{MONGO_HOST}:27017/")
@@ -61,6 +79,16 @@ GRADE_POINTS = {
     "C": 2.0,
     "DNF": 0.0,
 }
+
+GRADE_GROUPS = {
+    "A": ["AP", "A", "AM"],
+    "B": ["BP", "B", "BM"],
+    "C": ["CP", "C", "CM"],
+    "DNF": ["DP", "D", "DM", "F"],
+}
+
+SUBJ_GROUPS = [CS, BA, MATH]
+BATCH_SIZE = 1000
 
 
 # Return a standardized JSON error response with the supplied HTTP status code.
@@ -128,6 +156,21 @@ def get_all_major_collections():
     return {
         major_key: db[config["collection"]]
         for major_key, config in MAJOR_CONFIG.items()
+    }
+
+
+def get_collection_by_logic_major(major_id):
+    for config in MAJOR_CONFIG.values():
+        if config["id"] == major_id:
+            return db[config["collection"]]
+    return None
+
+
+def get_upload_collections():
+    return {
+        "CS_major": get_collection_by_logic_major("CS_major"),
+        "BA_major": get_collection_by_logic_major("BA_major"),
+        "MATH_major": get_collection_by_logic_major("MATH_major"),
     }
 
 
@@ -254,10 +297,231 @@ def rank_professors(course_documents):
     return professors
 
 
+def get_uploaded_csv_file():
+    if "file" not in request.files:
+        return None, json_error("No file uploaded", 400)
+
+    uploaded_file = request.files["file"]
+    if not uploaded_file.filename.endswith(".csv"):
+        return None, json_error("File must be a .csv", 400)
+
+    return uploaded_file.stream.read().decode("utf-8"), None
+
+
+def parse_grade(value):
+    if value is None:
+        return None
+
+    value = value.strip()
+    if value == "*" or value == "":
+        return None
+
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def condense_grades(row):
+    result = {}
+    for letter, fields in GRADE_GROUPS.items():
+        values = []
+        for field in fields:
+            value = parse_grade(row.get(field))
+            if value is None:
+                return None
+            values.append(value)
+        result[letter] = sum(values)
+    return result
+
+
+def preview_grade_upload(file_content):
+    reader = csv.DictReader(io.StringIO(file_content))
+    for row in reader:
+        grade_dist = condense_grades(row)
+        if grade_dist is None:
+            continue
+
+        instructor_entry = {
+            "crn": row["CRN"].strip(),
+            "name": row["INSTRUCTOR"].strip(),
+            "grades": grade_dist,
+        }
+        return jsonify(
+            {
+                "term": row["TERM"].strip(),
+                "major": row["SUBJ"].strip(),
+                "class": row["NUMB"].strip(),
+                "professors": [instructor_entry],
+            }
+        )
+
+    return json_error("No rows with usable grade data found", 400)
+
+
+def preview_degree_plan_upload(file_content):
+    reader = csv.DictReader(io.StringIO(file_content))
+    for row in reader:
+        return jsonify(
+            {
+                "term": row["TERM"].strip(),
+                "year": row["YEAR"].strip(),
+                "major": row["SUBJ"].strip(),
+                "class": row["NUMB"].strip(),
+                "title": row["TITLE"].strip(),
+            }
+        )
+
+    return json_error("No degree plan rows found", 400)
+
+
+def flush_upload_batch(batch, major_id):
+    docs = list(batch.values())
+    if not docs:
+        return 0
+
+    collection = get_upload_collections()[major_id]
+    try:
+        result = collection.insert_many(docs, ordered=False)
+        return len(result.inserted_ids)
+    except BulkWriteError as error:
+        return error.details.get("nInserted", 0)
+
+
+def generate_grade_upload(file_content):
+    reader = csv.DictReader(io.StringIO(file_content))
+    batches = {
+        "CS_major": {},
+        "BA_major": {},
+        "MATH_major": {},
+    }
+    rows_read = 0
+    total_inserted = 0
+
+    for row in reader:
+        rows_read += 1
+        db_insert = []
+        term = row["TERM"].strip()
+        subj = row["SUBJ"].strip()
+        numb = row["NUMB"].strip()
+        crn = row["CRN"].strip()
+        instructor = row["INSTRUCTOR"].strip()
+
+        for subject_group in SUBJ_GROUPS:
+            if subj in subject_group and numb in subject_group[subj]:
+                db_insert.append(subject_group["NAME"])
+
+        if not db_insert:
+            continue
+
+        grade_dist = condense_grades(row)
+        if grade_dist is None:
+            continue
+
+        instructor_entry = {
+            "crn": crn,
+            "name": instructor,
+            "grades": grade_dist,
+        }
+        key = (term, subj, numb)
+
+        for major_id in db_insert:
+            if key not in batches[major_id]:
+                batches[major_id][key] = {
+                    "term": term,
+                    "major": subj,
+                    "class": numb,
+                    "professors": [instructor_entry],
+                }
+            else:
+                batches[major_id][key]["professors"].append(instructor_entry)
+
+            if rows_read % BATCH_SIZE == 0:
+                inserted = flush_upload_batch(batches[major_id], major_id)
+                total_inserted += inserted
+                batches[major_id] = {}
+                yield f"data: {json.dumps({'rows': rows_read, 'inserted': total_inserted})}\n\n"
+
+    for major_id, batch in batches.items():
+        if not batch:
+            continue
+        total_inserted += flush_upload_batch(batch, major_id)
+
+    yield f"data: {json.dumps({'rows': rows_read, 'inserted': total_inserted, 'done': True})}\n\n"
+
+
+def upload_degree_plan(file_content):
+    reader = csv.DictReader(io.StringIO(file_content))
+    documents = []
+    for row in reader:
+        documents.append(
+            {
+                "term": row["TERM"].strip(),
+                "year": row["YEAR"].strip(),
+                "major": row["SUBJ"].strip(),
+                "class": row["NUMB"].strip(),
+                "title": row["TITLE"].strip(),
+            }
+        )
+
+    if not documents:
+        return jsonify({"inserted": 0})
+
+    result = db["plan"].insert_many(documents)
+    return jsonify({"inserted": len(result.inserted_ids)})
+
+
 # Return a small service metadata response for the API root.
 @app.route("/")
 def index():
-    return jsonify({"service": "maxGPA API", "database": MONGO_DB_NAME})
+    return send_from_directory(INTERFACE_DIR, "index.html")
+
+
+@app.route("/app.js")
+def interface_javascript():
+    return send_from_directory(INTERFACE_DIR, "app.js")
+
+
+@app.route("/style.css")
+def interface_stylesheet():
+    return send_from_directory(INTERFACE_DIR, "style.css")
+
+
+@app.route("/admin")
+def admin_index():
+    return render_template("adminindex.html")
+
+
+@app.route("/upload-prev", methods=["POST"])
+def grade_upload_preview():
+    file_content, error = get_uploaded_csv_file()
+    if error:
+        return error
+    return preview_grade_upload(file_content)
+
+
+@app.route("/degree-prev", methods=["POST"])
+def degree_upload_preview():
+    file_content, error = get_uploaded_csv_file()
+    if error:
+        return error
+    return preview_degree_plan_upload(file_content)
+
+
+@app.route("/upload-endpoint", methods=["POST"])
+def upload_grade_csv():
+    file_content, error = get_uploaded_csv_file()
+    if error:
+        return error
+    return Response(generate_grade_upload(file_content), mimetype="text/event-stream")
+
+
+@app.route("/upload-dg-endpoint", methods=["POST"])
+def upload_degree_csv():
+    file_content, error = get_uploaded_csv_file()
+    if error:
+        return error
+    return upload_degree_plan(file_content)
 
 
 # Return API health and active database information.
@@ -536,4 +800,4 @@ def import_documents(major_key):
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", debug=True)

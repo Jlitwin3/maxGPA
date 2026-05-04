@@ -1,0 +1,23 @@
+services:
+  db:
+    image: mongo:4.4
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongo", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  maxgpa-service:
+    build: .
+    command: python -u Flask/app.py
+    ports:
+      - "5001:5000"
+    environment:
+      - MONGO_URI=mongodb://db:27017/
+      - DB_PORT_27017_TCP_ADDR=db
+      - MONGO_DB_NAME=maxGPAdb
+    depends_on:
+      db:
+        condition: service_healthy

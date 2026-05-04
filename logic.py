@@ -9,10 +9,10 @@ Functions have simple inputs and return dicts and lists so for easy jsonify()
 Required classes for a major: get_required_courses("CS_major")
 Grade distribution graphs per class: generate_all_graphs_for_course()
 All instructors per class: get_instructors_for_course()
-Instructors with highest grades: get_instructors_for_course() sorted by highest percentage of A
+Instructors with highest grades: get_instructors_for_course() sorted by average GPA
 Student's years: get_term_codes_in_range()
 Throw exception if there is no grade data for a class: check_missing_grade_data()
-Ranks professors by grade by percentage of As top to bottom: rank_instructors_by_grade()
+Ranks professors by average GPA top to bottom: rank_instructors_by_grade()
 Returns frontend data: get_full_major_report()
 """
 
@@ -147,21 +147,20 @@ def get_instructors_for_course(major: str, subject: str, number: str, start_ay: 
 
 def rank_instructors_by_grade(instructors: list[dict]) -> list[dict]:
     """
-    Sort instructors with most As with the highest prof sorted first
-    return inst dicts
+    Sort instructors by average GPA, then by number of graded students.
+    The All Instructors aggregate stays first when present.
     """
-    #Can define within the func, not needed elsewhere
-    def a_percentage(instructor):
-        grades = instructor["grades"]
-        total = sum(grades.values()) or 1
-        return grades.get("A", 0) / total
-
-    #skip the all inst
+    all_instr = [
+        instructor_with_average_gpa(i)
+        for i in instructors
+        if i["name"] == "All Instructors"
+    ]
     individuals = [i for i in instructors if i["name"] != "All Instructors"]
-    ranked = sorted(individuals, key=a_percentage, reverse=True)
+    ranked = [
+        instructor_with_average_gpa(i)
+        for i in sorted(individuals, key=instructor_rank_key)
+    ]
 
-    # always keep All Instructors at the front
-    all_instr = [i for i in instructors if i["name"] == "All Instructors"]
     return all_instr + ranked #concatenate
 
 
@@ -182,6 +181,39 @@ def check_missing_grade_data(major: str, start_ay: str, end_ay: str) -> list[str
 
 
 GRADE_COLORS = {"A":   "#053C05", "B":   "#06043A", "C":   "#9109EC", "DNF": "#CC4444"}
+GRADE_POINTS = {"A": 4.0, "B": 3.0, "C": 2.0, "DNF": 0.0}
+
+
+def compute_average_gpa_from_counts(grade_counts: dict) -> float | None:
+    """
+    Compute weighted average GPA from condensed grade counts.
+    Matches the GPA ranking calculation used by Flask/app.py.
+    """
+    total_students = sum(grade_counts.values())
+    if total_students == 0:
+        return None
+
+    total_points = sum(
+        GRADE_POINTS[grade_key] * grade_counts.get(grade_key, 0)
+        for grade_key in GRADE_POINTS
+    )
+    return round(total_points / total_students, 2)
+
+
+def instructor_rank_key(instructor: dict) -> tuple:
+    grades = instructor["grades"]
+    average_gpa = compute_average_gpa_from_counts(grades)
+    return (
+        -(average_gpa if average_gpa is not None else -1),
+        -sum(grades.values()),
+        instructor.get("name") or "",
+    )
+
+
+def instructor_with_average_gpa(instructor: dict) -> dict:
+    result = dict(instructor)
+    result["average_gpa"] = compute_average_gpa_from_counts(instructor["grades"])
+    return result
 
 def generate_grade_distribution(course_id: str, instructor_name: str, grade_data: dict) -> str:
     """
@@ -300,6 +332,7 @@ def get_full_major_report(major: str, start_ay: str, end_ay: str) -> dict:
             graphs.append({
                 "instructor": entry["name"],
                 "grades": entry["grades"],
+                "average_gpa": entry["average_gpa"],
                 "graph": b64})
 
         report.append({
@@ -360,15 +393,12 @@ if __name__ == "__main__":
     print("TEST 2: rank_instructors_by_grade")
     print("=" * 60)
     ranked = rank_instructors_by_grade(fake_instructors)
-    print("  Instructors ranked by A%:")
+    print("  Instructors ranked by average GPA:")
     for i, inst in enumerate(ranked):
-        grades = inst["grades"]
-        total  = sum(grades.values()) or 1
-        a_pct  = round(grades["A"] / total * 100)
-        print(f"  {i+1}. {inst['name']:20s}  A: {a_pct}%")
+        print(f"  {i+1}. {inst['name']:20s}  GPA: {inst['average_gpa']}")
     assert ranked[0]["name"] == "All Instructors", "All Instructors should always be first"
-    assert ranked[1]["name"] == "Wang",            "Wang has highest A% and should be #1 individual"
-    assert ranked[-1]["name"] == "Jones",          "Jones has lowest A% and should be last"
+    assert ranked[1]["name"] == "Wang",            "Wang has highest GPA and should be #1 individual"
+    assert ranked[-1]["name"] == "Jones",          "Jones has lowest GPA and should be last"
     print("  PASS\n")
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -438,10 +468,7 @@ if __name__ == "__main__":
     for c in fake_report["courses"]:
         print(f"  {c['course_id']}")
         for inst in c["instructors"]:
-            grades = inst["grades"]
-            total  = sum(grades.values()) or 1
-            a_pct  = round(grades["A"] / total * 100)
-            print(f"    {inst['instructor']:20s}  A:{a_pct}%")
+            print(f"    {inst['instructor']:20s}  GPA:{inst['average_gpa']}")
 
     assert len(fake_report["courses"]) == len(fake_courses)
     assert fake_report["courses"][0]["instructors"][0]["instructor"] == "All Instructors"
