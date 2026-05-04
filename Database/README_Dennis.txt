@@ -13,7 +13,7 @@ BASIC OVERVIEW:
 
 OVERVIEW/AI USAGE:
 
-The Database folder and all of it's contents were created by me, including comments and function headers.
+The Database folder and all of it's contents were created by me, including comments and function headers*.
 AI was prompted to help me speed up the grade data history uploading process; specifically, it wrote the flush function.
 It also helped debug my adminindex js code; I do not code in js super often so a lot of my code was guesswork that
 was then assisted by AI to iron out major bugs (eg. I couldn't figure out how to display uploaded filenames to the user in the
@@ -22,6 +22,10 @@ parsed in the grade history data sction, so I asked AI to assist me). This readm
 as was the structure of the databases.
 Specific information regarding global variables or function variables have been commented extensively in the various files, so I'm opting
 to leave that information out as to not overload the reader with technical jargon.
+
+*I did ask AI to help write the comment documentation for the adminindex.html file. The code is written by me sans what's already been 
+specified but to meet the documentation requirements, but the commenting was a large task to undertake so I gave AI the file and asked it to
+comment my code; I then formatted it and changed things to best match my own style.
 
 THE PROGRAM FILES:
 
