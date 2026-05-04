@@ -98,6 +98,12 @@ def dgsubmit():
 
 @app.route('/upload-prev', methods=['POST'])
 def plan_preview():
+    """
+    function that contains a call to preview; this is to display the uploaded
+    csv file's first line as a preview to the website user. it returns a jsonified
+    dict of term/subject/number/crn/instructor/grade distribution data back to the html page
+    to be displayed.
+    """
     file = request.files['file']
 
     if not file.filename.endswith('.csv'):
@@ -108,6 +114,10 @@ def plan_preview():
 
 @app.route('/degree-prev', methods=['POST'])
 def dgplan_preview():
+    """
+    function that contains a call to dgpreview; this is to display the uploaded
+    csv file's first line as a preview to the website user.
+    """
     file = request.files['file']
 
     if not file.filename.endswith('.csv'):
@@ -120,6 +130,12 @@ def dgplan_preview():
 """   PREVIEW FUNCTIONS    """
 
 def preview(file_content):
+    '''
+    strips the first non-garbage data row in the csv file, puts it in the same
+    format as would be added to the database, and then returns it in a json format
+    back to plan_preview, which will then be sent back to the html page to be dsplayed
+    in a readable format for the viewer.
+    '''
     reader = csv.DictReader(io.StringIO(file_content))
     for row in reader: #row is a line in the csv
         # below: stripping each part of the csv line contents
@@ -145,6 +161,11 @@ def preview(file_content):
         return jsonify(result)
 
 def dgpreview(file_content):
+    '''
+    strips the first row in the csv file, puts it in the same format as would be added 
+    to the database, and then returns it in a json format back to dgplan_preview, which 
+    will then be sent back to the html page to be dsplayed in a readable format for the viewer.
+    '''
     reader = csv.DictReader(io.StringIO(file_content))
     for row in reader:
         term       = row["TERM"].strip() #course term (eg: 1)
@@ -164,6 +185,12 @@ def dgpreview(file_content):
 """   DATABASE FUNCTIONS   """
 
 def dgupload(file_content):
+    '''
+    parses through each line in a degree plan csv and sends it's info organized
+    into a MongoDB document into the database. Since the number of lines in the
+    degree plans are relatively small I opted to just send one line at a time to the database, especially
+    since no lines are being skipped.
+    '''
     reader = csv.DictReader(io.StringIO(file_content))
     for row in reader:
         term       = row["TERM"].strip() #course term (eg: 1)
@@ -171,14 +198,14 @@ def dgupload(file_content):
         numb       = row["NUMB"].strip() #class number (eg: 252)
         year        = row["YEAR"].strip() #year (eg: 1)
         title = row["TITLE"].strip() #class title (eg: Integral Calculus)
-        result = {
+        result = { #document format to be inserted into the database
                     "term": term, 
                     "year": year,
                     "major": subj,
                     "class": numb,
                     "title": title
                 }
-        degreeplans.insert_one(result)
+        degreeplans.insert_one(result, ordered=False)
     return
 
 def parse_grade(value):
@@ -281,8 +308,8 @@ def generate(file_content):
         instructor_entry = {"crn": crn, "name": instructor, "grades": grade_dist} #these are unique to each instructor, used for document
         key = (term, subj, numb) #each needed to best match same-term classes taught by differnt profs
 
-        for item in db_insert:
-            if key not in BATCH[item]: 
+        for item in db_insert: #inserts into each applicable major collection
+            if key not in BATCH[item]: #compares keys to documents already in a batch to be submitted to the collection
                 #BATCH[item] points to the three dicts related to each major (eg: csbatch)
                 BATCH[item][key] = {
                     "term": term, 
@@ -293,8 +320,8 @@ def generate(file_content):
             else:
                 BATCH[item][key]["professors"].append(instructor_entry)
         
-        for item in db_insert:
-            if rows_read % BATCH_SIZE == 0:
+        for item in db_insert: #once again goes through each applicable collection to insert
+            if rows_read % BATCH_SIZE == 0: 
                 n = flush(BATCH[item], item) #sends data to db in bulk
                 total_inserted += n
                 BATCH[item] = {}
