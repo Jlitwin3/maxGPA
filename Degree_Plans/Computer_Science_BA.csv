@@ -1,0 +1,52 @@
+YEAR,TERM,SUBJ,NUMB,TITLE
+1,1,CS,210,Computer Science I
+1,1,MATH,251Z,Differential Calculus
+1,2,CS,211,Computer Science II
+1,2,MATH,252Z,Integral Calculus
+2,1,CS,212,Computer Science III
+2,1,MATH,231,Elements of Discrete Mathematics I
+2,2,CS,314,Computer Organization
+2,2,MATH,232,Elements of Discrete Mathematics II
+2,3,WR,320,Scientific and Technical Writing
+2,3,MATH,341,Elementary Linear Algebra
+3,1,CS,313,Intermediate Data Structures
+3,2,CS,315,Intermediate Algorithms
+3,2,CS,330,C/C++ and Unix
+3,3,CS,415,Operating Systems
+3,3,PHIL,223,Data Ethics
+4,1,CS,425,Principles of Programming Languages
+4,2,CS,422,Software Methodology I
+1,1,MATH,246,Calculus for the Biological Sciences I
+1,2,MATH,261,Differential Calculus (alt)
+1,3,WR,321,Business Communications
+2,3,HC,301H,Research and Writing
+2,3,MATH,343,Statistical Models and Methods
+2,3,MATH,345M,Probability and Statistics for Data Science
+1,1,BI,221Z,Principles of Biology I: Cells
+1,2,BI,222Z,Principles of Biology II: Organisms
+1,3,BI,223Z,Principles of Biology III: Ecology and Evolution
+1,1,CH,111,Introduction to Chemical Principles
+1,1,CH,113,The Chemistry of Sustainability
+1,1,CH,221Z,General Chemistry I
+1,2,CH,222Z,General Chemistry II
+1,3,CH,223Z,General Chemistry III
+1,1,CH,224H,Advanced General Chemistry I
+1,1,ERTH,201,Dynamic Planet Earth
+1,2,ERTH,202,Earth's Surface and Environment
+1,3,ERTH,203,History of Life
+1,1,GEOG,141,The Natural Environment
+2,1,GEOG,321,Climatology
+2,2,GEOG,322,Geomorphology
+2,3,GEOG,323,Biogeography
+1,1,PHYS,201,General Physics I
+1,2,PHYS,202,General Physics II
+1,3,PHYS,203,General Physics III
+1,1,PHYS,251,Foundations of Physics I
+1,2,PHYS,252,Foundations of Physics II
+1,3,PHYS,253,Foundations of Physics III
+1,1,PSY,201,Introduction to Psychology I
+2,1,PSY,301,Scientific Thinking in Psychology
+2,2,PSY,304,Biopsychology
+2,3,PSY,305,Cognition
+3,1,PSY,348,Music and the Brain
+1,2,PHIL,123,Internet Society and Philosophy

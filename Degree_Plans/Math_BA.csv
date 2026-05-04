@@ -1,0 +1,51 @@
+YEAR,TERM,SUBJ,NUMB,TITLE
+1,1,MATH,251Z,Differential Calculus
+1,2,MATH,252Z,Integral Calculus
+1,2,MATH,201,Algebra Math Lab
+1,3,MATH,253Z,Calculus: Sequences and Series
+2,1,MATH,281,Several-Variable Calculus I
+2,1,MATH,341,Elementary Linear Algebra
+2,2,MATH,282,Several-Variable Calculus II
+2,2,MATH,342,Elementary Linear Algebra II
+2,3,MATH,202,Geometry Math Lab
+2,3,MATH,205,Foundations Math Lab
+2,3,MATH,307,Introduction to Proof
+3,1,MATH,316,Fundamentals of Analysis I
+3,2,MATH,317,Fundamentals of Analysis II
+3,3,CS,122,Introduction to Programming and Problem Solving
+4,1,MATH,461,Introduction to Mathematical Methods of Statistics I
+4,2,MATH,462,Introduction to Mathematical Methods of Statistics II
+4,3,MATH,397,History and Applications of Calculus
+1,1,MATH,203,Analysis and Number Theory Math Lab
+1,2,MATH,204,Calculus Math Lab
+1,3,MATH,206,Combinatorics Math Lab
+2,2,MATH,231,Elements of Discrete Mathematics I
+2,3,MATH,232,Elements of Discrete Mathematics II
+3,1,MATH,343,Statistical Models and Methods
+3,1,MATH,345M,Probability and Statistics for Data Science
+3,2,MATH,347,Fundamentals of Number Theory I
+3,3,MATH,348,Fundamentals of Number Theory II
+3,1,MATH,351,Elementary Numerical Analysis I
+3,2,MATH,352,Elementary Numerical Analysis II
+3,1,MATH,391,Fundamentals of Abstract Algebra I
+3,2,MATH,392,Fundamentals of Abstract Algebra II
+3,1,MATH,394,Geometries from an Advanced Viewpoint I
+3,2,MATH,395,Geometries from an Advanced Viewpoint II
+4,1,MATH,411,Functions of a Complex Variable I
+4,1,MATH,413,Introduction to Analysis I
+4,2,MATH,414,Introduction to Analysis II
+4,3,MATH,415,Introduction to Analysis III
+3,3,MATH,421M,Partial Differential Equations: Fourier Analysis I
+4,1,MATH,422,Partial Differential Equations: Fourier Analysis II
+4,1,MATH,431,Introduction to Topology I
+4,2,MATH,432,Introduction to Topology II
+4,3,MATH,433,Introduction to Differential Geometry
+4,1,MATH,441,Linear Algebra
+4,1,MATH,444,Introduction to Abstract Algebra I
+4,2,MATH,445,Introduction to Abstract Algebra II
+4,3,MATH,446,Introduction to Abstract Algebra III
+3,3,MATH,458,Introduction to Mathematical Cryptography
+4,3,MATH,463,Mathematical Methods of Regression Analysis and Analysis of Variance
+4,3,MATH,467,Stochastic Processes
+3,1,CS,210,Computer Science I
+3,2,DSCI,345M,Probability and Statistics for Data Science

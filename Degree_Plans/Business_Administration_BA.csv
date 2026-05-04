@@ -1,0 +1,82 @@
+YEAR,TERM,SUBJ,NUMB,TITLE
+1,1,BA,101Z,Introduction to Business
+1,2,EC,201Z,Principles of Microeconomics
+1,2,MATH,241,Calculus for Business and Social Science I
+1,2,WR,121Z,Composition I
+1,3,EC,202Z,Principles of Macroeconomics
+1,3,WR,122Z,Composition II
+2,1,BA,211Z,Principles of Financial Accounting
+2,1,STAT,243Z,Elementary Statistics I
+2,2,BA,213Z,Principles of Managerial Accounting
+2,2,BA,169Z,Data Analysis Using Microsoft Excel
+2,3,BA,308,Leadership and Communication
+3,1,FIN,311,Economic Foundations of Competitive Analysis
+3,1,OBA,311,Business Analytics I
+3,2,FIN,316,Financial Management
+3,2,MKTG,311,Marketing Management
+3,2,MGMT,311,Managing People in Organizations
+3,3,OBA,335,Operations Management
+3,3,OBA,312,Business Analytics II
+4,1,BA,325,Business Law and Ethics
+4,1,BA,322,Fundamentals of Sustainable Business
+4,2,BA,453,Business Strategy and Planning
+1,1,HC,101H,Liberal Arts
+1,2,HC,221H,Arts and Letters Inquiry
+1,3,WR,123,College Composition III
+1,2,MATH,251Z,Differential Calculus
+2,1,EC,311,Intermediate Microeconomic Theory
+3,1,ACTG,340,Accounting for Entrepreneurs
+3,1,ACTG,350,Intermediate Accounting I
+3,2,ACTG,351,Intermediate Accounting II
+3,3,ACTG,352,Intermediate Accounting III
+3,1,ACTG,360,Cost Accounting
+4,1,ACTG,410,Experimental Course
+4,1,ACTG,440,Auditing
+4,2,ACTG,450,Advanced Financial Accounting
+4,2,ACTG,460,Government and Not for Profit Accounting
+4,3,ACTG,470,Federal Taxation
+4,3,ACTG,480,Accounting Data Analytics I
+3,1,FIN,380,Financial Markets and Investments
+4,1,FIN,410,Experimental Course
+4,1,FIN,462,Derivative Markets and Financial Institutions
+4,2,FIN,463,International Finance
+4,2,FIN,464,Commercial Banking
+4,3,FIN,473,Financial Analysis and Valuation
+3,2,MGMT,335,Launching New Ventures
+4,1,MGMT,410,Experimental Course
+4,1,MGMT,415,Human Resources Management
+4,2,MGMT,416,Organizational Development and Change Management
+4,2,MGMT,417,Negotiation Strategies
+4,3,MGMT,420,Managing in a Global Economy
+4,3,MGMT,422,Sustainable Business Strategy and Implementation
+4,1,MGMT,443,Life Cycle Assessment
+4,2,MGMT,455,Implementing Entrepreneurial Strategies
+4,3,MGMT,460,Lean Launchpad Entrepreneurship
+4,3,MGMT,461,Business of Food
+3,2,MKTG,390,Marketing Research
+4,1,MKTG,410,Experimental Course
+4,1,MKTG,415,Marketing Analytics
+4,2,MKTG,420,Marketing Communications
+4,2,MKTG,435,Consumer Behavior
+4,3,MKTG,445,Entrepreneurial Marketing
+4,3,MKTG,465,Digital Marketing
+4,1,MKTG,468,Marketing Sustainability and Ethics
+4,2,MKTG,470,International Marketing
+4,3,MKTG,490,Marketing Strategy
+4,1,SBUS,410,Experimental Course
+4,1,SBUS,450,Sports Marketing
+4,2,SBUS,452,Sports Sponsorship
+4,2,SBUS,453,Law and Sports Business
+4,3,SBUS,455,Financing Sports Business
+4,3,SBUS,456,Sports Brand Management
+4,1,OBA,410,Experimental Course
+4,1,OBA,444,Business Database Management Systems
+4,2,OBA,455,Data Driven Predictive Modeling
+4,2,OBA,465,Sports Analytics
+4,3,OBA,466,Project and Operations Management Models
+4,3,OBA,477,Supply-Chain Operations and Information
+3,3,BA,361,Cross-Cultural Business Communication
+3,3,BA,365,Cross-Cultural Negotiation
+2,1,ANTH,209,Business Anthropology
+2,1,BA,252,Global Perspectives in Business
+1,1,GLBL,102,Foundations for Intercultural Competence

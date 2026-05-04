@@ -3,76 +3,240 @@
 <head>
   <meta charset="UTF-8"/>
   <title>MaxGPA — Upload</title>
+  <style>
+    .panel { display: none; }
+    .panel.active { display: block; }
+  </style>
 </head>
 <body>
-  <h2>Upload Grade Distribution CSV</h2>
+  <header>
+    <h1>MaxGPA Admin Panel</h1>
+  </header>
 
-  <label for="file-upload">Upload csv file:</label>
-  <input type="file" id="file-upload" name="file-upload" accept=".csv">
+  <nav class="tabs">
+  <button class="tab-btn active" onclick="switchTab(this,'grade')">Submit Grade Info</button>
+  <button class="tab-btn"        onclick="switchTab(this,'plans')">Submit Degree Plans</button>
+  </nav>
   <br><br>
-  <button id="submit-btn">Submit</button>
 
-  <p id="status"></p>
+  <!-- section 1: uploading grade distribution csv file-->
+  <section class="panel active" id="tab-grade">
+    <label for="file-upload">Upload grade distribution csv file:</label>
+    <input type="file" id="file-upload" name="file-upload" accept=".csv">
+    <br><br>
+    <button id="submit-prev">Submit</button>
+    <p id="status"></p>
 
+    <pre id="preview"></pre>
+    <label for="submit-btn" id="label" style="display:none">Does this preview look ok? Your action cannot be undone.</label>
+    <button id="submit-btn" style="display:none">Yes</button>
+    <button id="cancel" style="display:none">No</button>
+  </section>
+
+  <!-- section 2: uploading major degree plan csv files-->
+  <section class="panel" id="tab-plans">
+    <label for="degree-upload">Upload degree plan csv file:</label>
+    <input type="file" id="degree-upload" name="degree-upload" accept=".csv">
+    <br><br>
+    <button id="degree-prev">Submit</button>
+    <p id="dgstatus"></p>
+    <pre id="dgpreview"></pre>
+    <label for="dgsubmit-btn" id="dglabel" style="display:none">Does this preview look ok? Your action cannot be undone.</label>
+    <button id="dgsubmit-btn" style="display:none">Yes</button>
+    <button id="dgcancel" style="display:none">No</button>
+    <br><br>
+
+    <div class="card">
+      <div class="card-title">Currently Loaded Degree Plans (Please upload only three, one at a time):</div>
+      <p id="gradeprev"></p>
+    </div>
+  </section>
   <script>
-    document.getElementById('submit-btn').addEventListener('click', function (e) {
-      e.preventDefault();
+    const degreeplancount = 0; // to count number of degree plans uploaded so user doesn't exceed limit
+    console.log("Hi I'm Working");
 
-      const fileInput = document.getElementById('file-upload');
-      const statusEl  = document.getElementById('status');
+    /* switching tab functionality */
+    function switchTab(btn, name) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    btn.classList.add('active');
+        }
 
-      if (!fileInput.files || fileInput.files.length === 0) {
+    /* section 1 functionality */
+    document.getElementById('submit-prev').addEventListener('click', () => {
+        
+        const fileInput = document.getElementById('file-upload');
+        const statusEl  = document.getElementById('status');
+        const preview = document.getElementById('preview');
+
+        if (!fileInput.files || fileInput.files.length === 0) {
         statusEl.textContent = 'Please select a CSV file first.';
         return;
-      }
+        }
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
 
-      const formData = new FormData();
-      formData.append('file', fileInput.files[0]);
-
-      //disable button while uploading
-      this.disabled = true;
-      statusEl.textContent = 'Uploading…';
-
-      fetch('/upload-endpoint', { method: 'POST', body: formData })
-        .then(response => {
-          //response is a text/event-stream
-          //it's just so the viewer of the page doesn't look at nothing
-          //while the file is being uploaded and parsed
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-          let buffer = '';
-
-          function read() {
-            reader.read().then(({ done, value }) => {
-              if (done) return;
-
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split('\n');
-              buffer = lines.pop(); // keep incomplete last line
-
-              for (const line of lines) {
-                if (!line.startsWith('data: ')) continue;
-                try {
-                  const msg = JSON.parse(line.slice(6));
-                  statusEl.textContent =
-                    `Processed ${msg.rows.toLocaleString()} rows, inserted ${msg.inserted.toLocaleString()} documents…`;
-
-                  if (msg.done) {
-                    statusEl.textContent =
-                      `Done! Inserted ${msg.inserted.toLocaleString()} documents from ${msg.rows.toLocaleString()} rows.`;
-                    return;
-                  }
-                } catch (_) {}
-              }
-              read();
-            });
-          }
-          read();
+        //disable button while uploading
+        this.disabled = true;
+        statusEl.textContent = 'Checking…';
+        fetch('/upload-prev', { method: 'POST', body: formData })
+        .then(response => response.json())
+        .then(data => {
+            preview.textContent = JSON.stringify(data, null, 2);
         })
         .catch(err => {
-          console.error(err);
-          statusEl.textContent = 'Error submitting file.';
-          document.getElementById('submit-btn').disabled = false;
+            console.error(err);
+            statusEl.textContent = 'Error submitting file.';
+            document.getElementById('submit-prev').disabled = false;
+        });
+        document.getElementById('submit-btn').style.display = 'inline-block';
+        document.getElementById('label').style.display = 'inline-block';
+        document.getElementById('cancel').style.display = 'inline-block';
+    });
+
+
+    document.getElementById('submit-btn').addEventListener('click', function (e) {
+        e.preventDefault();
+
+        const fileInput = document.getElementById('file-upload');
+        const statusEl  = document.getElementById('status');
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+
+        //disable button while uploading
+        this.disabled = true;
+        statusEl.textContent = 'Uploading…';
+
+        fetch('/upload-endpoint', { method: 'POST', body: formData })
+        .then(response => {
+            //response is a text/event-stream
+            //it's just so the viewer of the page doesn't look at nothing
+            //while the file is being uploaded and parsed
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            function read() {
+            reader.read().then(({ done, value }) => {
+                if (done) return;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop(); // keep incomplete last line
+
+                for (const line of lines) {
+                if (!line.startsWith('data: ')) continue;
+                try {
+                    const msg = JSON.parse(line.slice(6));
+                    statusEl.textContent =
+                    `Processed ${msg.rows.toLocaleString()} rows, inserted ${msg.inserted.toLocaleString()} documents…`;
+
+                    if (msg.done) {
+                    statusEl.textContent =
+                        `Done! Inserted ${msg.inserted.toLocaleString()} documents from ${msg.rows.toLocaleString()} rows.`;
+                    return;
+                    }
+                } catch (_) {}
+                }
+                read();
+            });
+            }
+            read();
+            document.getElementById('preview').textContent = '';
+            document.getElementById('submit-btn').style.display = 'none';
+            document.getElementById('label').style.display = 'none';
+            document.getElementById('cancel').style.display = 'none';
+        })
+        .catch(err => {
+            console.error(err);
+            statusEl.textContent = 'Error submitting file.';
+            document.getElementById('submit-btn').disabled = false;
+        });
+    });
+
+
+    document.getElementById('cancel').addEventListener('click', () => {
+        const preview = document.getElementById('preview');
+        const statusEl  = document.getElementById('status');
+        preview.textContent = '';
+        statusEl.textContent = "Import canceled.";
+        document.getElementById('submit-btn').style.display = 'none';
+        document.getElementById('label').style.display = 'none';
+        document.getElementById('cancel').style.display = 'none';
+    });
+
+
+    /* secdtion 2 functionality */
+    document.getElementById('dgcancel').addEventListener('click', () => {
+        const preview = document.getElementById('dgpreview');
+        const statusEl  = document.getElementById('dgstatus');
+        preview.textContent = '';
+        statusEl.textContent = "Import canceled.";
+        document.getElementById('dgsubmit-btn').style.display = 'none';
+        document.getElementById('dglabel').style.display = 'none';
+        document.getElementById('dgcancel').style.display = 'none';
+    });
+
+
+    document.getElementById('degree-prev').addEventListener('click', () => {
+        
+        const fileInput = document.getElementById('degree-upload');
+        const statusEl  = document.getElementById('dgstatus');
+        const preview = document.getElementById('dgpreview');
+
+        if (degreeplancount >= 3){
+            statusEl.textContent = 'Degree Plan Limit Reached.'
+            return;
+        }
+        if (!fileInput.files || fileInput.files.length === 0) {
+        statusEl.textContent = 'Please select a CSV file first.';
+        return;
+        }
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+
+        //disable button while uploading
+        this.disabled = true;
+        fetch('/degree-prev', { method: 'POST', body: formData })
+        .then(response => response.json())
+        .then(data => {
+            preview.textContent = JSON.stringify(data, null, 2);
+        })
+        .catch(err => {
+            console.error(err);
+            statusEl.textContent = 'Error submitting file.';
+        });
+        document.getElementById('dgsubmit-btn').style.display = 'inline-block';
+        document.getElementById('dglabel').style.display = 'inline-block';
+        document.getElementById('dgcancel').style.display = 'inline-block';
+    });
+
+    document.getElementById('dgsubmit-btn').addEventListener('click', function (e) {
+        e.preventDefault();
+
+        const fileInput = document.getElementById('degree-upload');
+        const statusEl  = document.getElementById('dgstatus');
+        const degreePrev  = document.getElementById('gradeprev');
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+
+        statusEl.textContent = 'Uploading…';
+
+        fetch('/upload-dg-endpoint', { method: 'POST', body: formData })
+        .then(response => {
+            statusEl.textContent = 'Done!';
+            degreePrev.textContent += `${fileInput.files[0].name} `;
+            document.getElementById('dgpreview').textContent = '';
+            document.getElementById('dgsubmit-btn').style.display = 'none';
+            document.getElementById('dglabel').style.display = 'none';
+            document.getElementById('dgcancel').style.display = 'none';
+        })
+        .catch(err => {
+            console.error(err);
+            statusEl.textContent = 'Error submitting file.';
         });
     });
   </script>
