@@ -3,6 +3,10 @@ import os
 from flask import Flask, jsonify, render_template, request
 from pymongo import MongoClient
 
+import sys
+sys.path.append('..')
+from logic import get_full_major_report, get_available_years
+
 app = Flask(__name__)
 
 # MongoDB connection
@@ -24,6 +28,30 @@ def serialize_document(document):
     """Convert MongoDB ObjectId values into strings for JSON responses."""
     document["_id"] = str(document["_id"])
     return document
+
+
+#logic.py routes
+@app.route("/report", methods=["POST"])
+def full_report():
+    data = request.get_json()
+    major = data["major"]   
+    start_ay = data["start_ay"]  
+    end_ay = data["end_ay"]    
+    report = get_full_major_report(major, start_ay, end_ay)
+    return jsonify(report)
+
+@app.route("/majors", methods=["GET"])
+def get_majors():
+    return jsonify([
+        {"id": "CS_major", "name": "Computer Science BA"},
+        {"id": "BA_major", "name": "Business Administration BA"},
+        {"id": "MATH_major", "name": "Mathematics BA"},
+    ])
+
+@app.route("/years/<major_key>", methods=["GET"])
+def available_years(major_key):
+    years = get_available_years(major_key)
+    return jsonify(years)
 
 
 # Example schema outline:
