@@ -1,5 +1,5 @@
 """
-Author: Dennis Hulett
+Author: Dennis Hulett, last updated may 4 2026
 This file contains the exact list of required subject/course pairs necessary to complete
 each major listed, taken directly from UO catalogue, as well as a NAME key/val pair for 
 organizational purposes seen in db.py. Used as a header for the db.py file. It does not contain un-listed electives 

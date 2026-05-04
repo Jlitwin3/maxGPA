@@ -1,5 +1,6 @@
 """
 Created by: Dennis Hulett
+last updated may 4, 2026
 
 this file sets up the mongoDB database that is used to store
 and retrieve information to display on our main user page.

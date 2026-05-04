@@ -1,7 +1,6 @@
-AUTHOR: Dennis Hulett; May 4th, 2026
-Created adminindex.html, db.py, subjects.py, and docker-compose.yml/Dockerfile, 
-as well as the contents of the Degree_Plans folder and this README.
-Contributed to requirements.txt.
+AUTHOR: Dennis Hulett; Last updated May 4th, 2026
+Created adminindex.html, db.py, subjects.py, as well as the contents of the Degree_Plans folder and this README.
+Contributed to requirements.txt and the dockerfile/docker-compose.yml files.
 
 The Admin Page/Database
 
