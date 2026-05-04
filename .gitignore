@@ -1,1 +1,5 @@
 venv/
+__pycache__/
+*.pyc
+test_graph.png
+test_all_instructors_graph.png
