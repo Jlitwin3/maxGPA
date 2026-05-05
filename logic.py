@@ -63,8 +63,8 @@ def get_required_courses(major: str) -> list[dict]:
         for num in numbers:
             courses.append({
                 "subject": subj,
-                "number":  num,
-                "key":     f"{subj}-{num}",})
+                "number": num,
+                "key": f"{subj}-{num}",})
     return courses
 
 
@@ -89,7 +89,7 @@ def get_term_codes_in_range(start_ay: str, end_ay: str) -> list[int]:
     Returns the term codes for all within the given ay range inclusively, calls above function
     """
     start_year = int(start_ay[2:])
-    end_year   = int(end_ay[2:])
+    end_year = int(end_ay[2:])
 
     codes = []
     for year_short in range(start_year, end_year + 1):
@@ -135,7 +135,7 @@ def get_instructors_for_course(major: str, subject: str, number: str, start_ay: 
             for letter in ("A", "B", "C", "DNF"):
                 count = grades.get(letter, 0)
                 totals[name][letter] += count
-                all_grades[letter]   += count
+                all_grades[letter] += count
 
     result = [{"name": "All Instructors", "grades": all_grades}]
     for name, grades in totals.items():
@@ -180,6 +180,7 @@ def check_missing_grade_data(major: str, start_ay: str, end_ay: str) -> list[str
 
 
 
+<<<<<<< Updated upstream
 GRADE_COLORS = {"A":   "#053C05", "B":   "#06043A", "C":   "#9109EC", "DNF": "#CC4444"}
 GRADE_POINTS = {"A": 4.0, "B": 3.0, "C": 2.0, "DNF": 0.0}
 
@@ -216,6 +217,11 @@ def instructor_with_average_gpa(instructor: dict) -> dict:
     return result
 
 def generate_grade_distribution(course_id: str, instructor_name: str, grade_data: dict) -> str:
+=======
+GRADE_COLORS = {"A": "#053C05", "B": "#06043A", "C": "#9109EC", "DNF": "#CC4444"}
+
+def generate_grade_distribution(course_id: str, instructor_name: str, grade_data: dict) -> str:
+>>>>>>> Stashed changes
     """
     Bar graph for instructor grade distributions, this function handles one prof ata time
     grade_data: {"A": int, "B": int, "C": int, "DNF": int}
@@ -239,8 +245,7 @@ def generate_grade_distribution(course_id: str, instructor_name: str, grade_data
                 bar.get_x() + bar.get_width() / 2,
                 bar.get_height() + 1,
                 f"{pct}%",
-                ha="center", va="bottom", fontsize=9,
-            )
+                ha="center", va="bottom", fontsize=9)
 
     ax.set_title(f"{course_id}\n{instructor_name}", fontsize=10, pad=6)
     ax.set_ylabel("% of students", fontsize=9)
@@ -264,7 +269,7 @@ def generate_all_graphs_for_course(major: str, subject: str, number: str, start_
     {"instructor": "All Instructors", "graph": "<base64 png>"}
     jsonify() in flask the frontend go over it to render each <img> in the list
     """
-    course_id   = f"{subject} {number}"
+    course_id = f"{subject} {number}"
     instructors = get_instructors_for_course(major, subject, number, start_ay, end_ay)
 
     graphs = []
@@ -348,6 +353,7 @@ def get_full_major_report(major: str, start_ay: str, end_ay: str) -> dict:
         "courses":  report,
         "warnings": warnings}
 
+<<<<<<< Updated upstream
  
 
 if __name__ == "__main__":
@@ -509,3 +515,5 @@ if __name__ == "__main__":
     print("=" * 60)
     print("ALL TESTS PASSED")
     print("=" * 60)
+=======
+>>>>>>> Stashed changes

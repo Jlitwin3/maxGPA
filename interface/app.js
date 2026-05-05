@@ -1,37 +1,32 @@
+// Constant list of academic terms used to build the schedule grid
 const TERMS = ["Fall", "Winter", "Spring", "Summer"];
 
+// Global application state object
 const state = {
-  userType: null,
-  majors: [],
-  selectedMajor: "",
-  startYear: "",
-  endYear: "",
-  availableYears: ["AY16", "AY17", "AY18", "AY19", "AY20", "AY21", "AY22", "AY23"],
-  requiredCourses: [],
-  schedule: [],
-  selectedSlot: null,
-  sidePanelOpen: true
+  userType: null,                // "student" or "admin"
+  majors: [],                    // List of available majors
+  selectedMajor: "",             // Currently selected major ID
+  startYear: "",                 // Selected start year
+  endYear: "",                   // Selected end year
+  availableYears: ["AY16", "AY17", "AY18", "AY19", "AY20", "AY21", "AY22", "AY23"], // All selectable academic years
+  requiredCourses: [],           // Courses required for the selected major
+  schedule: [],                  // Generated schedule grid data structure
+  selectedSlot: null,            // Currently selected grid cell
+  sidePanelOpen: true            // Tracks whether the graph side panel is open
 };
 
+// Object used to store cached DOM element references
 const els = {};
 
+// Cache frequently used DOM elements
 function cacheElements() {
   els.userSelect = document.getElementById("user-select");
   els.controls = document.getElementById("controls");
   els.grid = document.getElementById("grid");
-  els.instructorPanel = document.getElementById("instructor-panel");
   els.sidePanel = document.getElementById("side-panel");
 }
 
-function hideInstructorPanel() {
-  els.instructorPanel.style.display = "none";
-  els.instructorPanel.innerHTML = "";
-}
-
-function showInstructorPanel() {
-  els.instructorPanel.style.display = "block";
-}
-
+// Simulated API call that returns available majors
 async function fetchMajors() {
   return [
     { id: "cs-ba", name: "Computer Science BA" },
@@ -40,6 +35,7 @@ async function fetchMajors() {
   ];
 }
 
+// Simulated API call that returns required courses for the selected major
 async function fetchRequiredCourses(majorId) {
   const coursesByMajor = {
     "cs-ba": [
@@ -71,6 +67,7 @@ async function fetchRequiredCourses(majorId) {
   return coursesByMajor[majorId] || [];
 }
 
+// Simulated API call that returns instructors and grade distributions for a course
 async function fetchCourseInstructors(course) {
   return [
     {
@@ -91,6 +88,7 @@ async function fetchCourseInstructors(course) {
   ];
 }
 
+// Render the initial buttons for choosing student or admin mode
 function renderUserSelect() {
   els.userSelect.innerHTML = `
     <button type="button" data-user-type="student">Student</button>
@@ -98,12 +96,15 @@ function renderUserSelect() {
   `;
 }
 
+// Render the student controls for selecting major, start year, and end year
 function renderControls() {
+  // Only show these controls for student users
   if (state.userType !== "student") {
     els.controls.innerHTML = "";
     return;
   }
 
+  // Build the controls using the current state values
   els.controls.innerHTML = `
     <label for="major-select">Major:</label>
     <select id="major-select">
@@ -145,113 +146,138 @@ function renderControls() {
   `;
 }
 
+// Render a temporary placeholder for the admin view
 function renderAdminPlaceholder() {
   els.controls.innerHTML = `
     <h2>Admin</h2>
     <p>Admin tools will go here later.</p>
   `;
 
+  // Clear student-specific UI when admin mode is selected
   els.grid.innerHTML = "";
-  hideInstructorPanel();
   els.sidePanel.innerHTML = "";
   els.sidePanel.classList.add("collapsed");
 }
 
+// Generate the schedule grid from the selected major and year range
 async function generateGridFromSelection() {
+  // Require all dropdowns to be selected before generating the plan
   if (!state.selectedMajor || !state.startYear || !state.endYear) {
     alert("Please select major, start year, and end year.");
     return;
   }
 
+  // Convert selected years to indexes for range validation
   const startIndex = state.availableYears.indexOf(state.startYear);
   const endIndex = state.availableYears.indexOf(state.endYear);
 
+  // Prevent invalid year ranges
   if (startIndex > endIndex) {
     alert("Start year must be before or equal to end year.");
     return;
   }
 
+  // Load the required courses for the selected major
   state.requiredCourses = await fetchRequiredCourses(state.selectedMajor);
 
+  // Create a list of years included in the selected range
   const selectedYears = state.availableYears.slice(startIndex, endIndex + 1);
 
+  // Build the internal schedule structure for each year and term
   state.schedule = selectedYears.map((year) => ({
     year,
     terms: TERMS.map((term) => ({
       term,
-      lockedClasses: [],
-      pendingCourse: null,
-      pendingInstructor: null
+      course: null,
+      instructor: null
     }))
   }));
 
+  // Reset selected grid cell and open the graph panel
   state.selectedSlot = null;
   state.sidePanelOpen = true;
 
-  showInstructorPanel();
-
+  // Render the generated plan UI
   renderGrid();
-  renderSelectionArea();
-  renderGraphPanel();
-  renderInstructorPanelArea();
+renderSelectionArea();
+renderGraphPanel();
 
-  state.selectedMajor = "";
-  state.startYear = "";
-  state.endYear = "";
+state.selectedMajor = "";
+state.startYear = "";
+state.endYear = "";
 
-  renderControls();
-}
-
-function renderGrid() {
-  let html = "";
-
-  html += '<div class="row">';
-  html += '<div class="cell"></div>';
-
-  for (let term of TERMS) {
-    html += `<div class="cell">${term}</div>`;
+renderControls();
   }
 
-  html += "</div>";
 
+
+// Render the generated schedule grid
+function renderGrid() {
+  // Clear the grid if no schedule exists
+  if (state.schedule.length === 0) {
+    els.grid.innerHTML = "";
+    return;
+  }
+
+  // Find the selected major object for display in the plan summary
+  const selectedMajor = state.majors.find(
+    (major) => major.id === state.selectedMajor
+  );
+
+  // Start building the grid HTML with a summary and header row
+  let html = `
+    <section id="plan-summary">
+      <h2>Generated Plan</h2>
+      <p><strong>Major:</strong> ${selectedMajor ? selectedMajor.name : "None selected"}</p>
+      <p><strong>Year Range:</strong> ${state.startYear} to ${state.endYear}</p>
+    </section>
+
+    <div class="row header-row">
+      <div class="cell"></div>
+      ${TERMS.map((term) => `<div class="cell">${term}</div>`).join("")}
+    </div>
+  `;
+
+  // Add one row for each academic year
   state.schedule.forEach((yearBlock, rowIndex) => {
-    html += '<div class="row">';
-    html += `<div class="cell">${yearBlock.year}</div>`;
+    html += `
+      <div class="row">
+        <div class="cell year-cell">${yearBlock.year}</div>
+    `;
 
+    // Add one cell for each term in the year
     yearBlock.terms.forEach((termBlock, colIndex) => {
-      let cellText = "+";
-
-      if (termBlock.lockedClasses.length > 0 || termBlock.pendingCourse) {
-        const lockedText = termBlock.lockedClasses
-          .map((item) => `${item.course.subject} ${item.course.number}`)
-          .join("<br>");
-
-        const pendingText = termBlock.pendingCourse
-          ? `<br><em>${termBlock.pendingCourse.subject} ${termBlock.pendingCourse.number}</em>`
-          : "";
-
-        cellText = `${lockedText}${pendingText}`;
-      }
+      const label = termBlock.course
+        ? `${termBlock.course.subject} ${termBlock.course.number}`
+        : "+";
 
       html += `
         <div class="cell">
-          <button class="cell-btn" data-row="${rowIndex}" data-col="${colIndex}">
-            ${cellText}
+          <button class="cell-btn" type="button" data-row="${rowIndex}" data-col="${colIndex}">
+            ${label}
           </button>
         </div>
       `;
     });
 
-    html += "</div>";
+    html += `</div>`;
   });
+
+  // Add the area where course selection controls will appear
+  html += `<section id="selection-area"></section>`;
 
   els.grid.innerHTML = html;
 }
 
+
+
+
+// Render the course selection area below the grid
 function renderSelectionArea() {
   const selectionArea = document.getElementById("selection-area");
   if (!selectionArea) return;
 
+  // Show basic scheduling progress when no grid cell is selected
   if (!state.selectedSlot) {
     const scheduledCount = getScheduledCourseKeys().size;
     const totalCount = state.requiredCourses.length;
@@ -264,55 +290,37 @@ function renderSelectionArea() {
     return;
   }
 
+  // If a grid cell is selected, show the course selector for that cell
   renderCourseSelector();
 }
 
+// Render the right-side graph panel
 function renderGraphPanel() {
+  // Hide and clear the panel when it is collapsed
   if (!state.sidePanelOpen) {
     els.sidePanel.classList.add("collapsed");
     els.sidePanel.innerHTML = "";
     return;
   }
 
+  // Show the side panel when open
   els.sidePanel.classList.remove("collapsed");
-  els.sidePanel.innerHTML = `<h2>Grade Distribution Graphs</h2>`;
-}
 
-function renderInstructorPanelPlaceholder() {
-  els.instructorPanel.innerHTML = `
-    <h2>Instructor Selection</h2>
-    <p>Select a grid cell and choose a course.</p>
+  els.sidePanel.innerHTML = `
+    <h2>Grade Distribution Graphs</h2>
+    <p>Graphs will appear here later.</p>
   `;
 }
 
-async function renderInstructorPanelArea() {
-  if (!state.selectedSlot) {
-    renderInstructorPanelPlaceholder();
-    return;
-  }
-
-  const { rowIndex, colIndex } = state.selectedSlot;
-  const termBlock = state.schedule[rowIndex].terms[colIndex];
-
-  if (!termBlock.pendingCourse) {
-    renderInstructorPanelPlaceholder();
-    return;
-  }
-
-  await renderInstructorPanel(rowIndex, colIndex);
-}
-
+// Return a Set of course keys for courses already placed in the schedule
 function getScheduledCourseKeys() {
   const keys = new Set();
 
+  // Walk through every scheduled term and collect selected courses
   state.schedule.forEach((yearBlock) => {
     yearBlock.terms.forEach((termBlock) => {
-      termBlock.lockedClasses.forEach((item) => {
-        keys.add(getCourseKey(item.course));
-      });
-
-      if (termBlock.pendingCourse) {
-        keys.add(getCourseKey(termBlock.pendingCourse));
+      if (termBlock.course) {
+        keys.add(getCourseKey(termBlock.course));
       }
     });
   });
@@ -320,132 +328,96 @@ function getScheduledCourseKeys() {
   return keys;
 }
 
+// Build a unique key for a course using subject and course number
 function getCourseKey(course) {
   return `${course.subject}-${course.number}`;
 }
 
+// Return the courses that are still available for a selected grid slot
 function getAvailableCoursesForSlot(rowIndex, colIndex) {
   const scheduledKeys = getScheduledCourseKeys();
+  const currentCourse = state.schedule[rowIndex].terms[colIndex].course;
+  const currentKey = currentCourse ? getCourseKey(currentCourse) : null;
 
+  // Exclude already scheduled courses, except the course currently in this slot
   return state.requiredCourses.filter((course) => {
     const key = getCourseKey(course);
-    return !scheduledKeys.has(key);
+    return !scheduledKeys.has(key) || key === currentKey;
   });
 }
 
+// Render the dropdown used to choose a course for the selected grid cell
 function renderCourseSelector() {
   const selectionArea = document.getElementById("selection-area");
   if (!selectionArea || !state.selectedSlot) return;
 
+  // Get selected grid position
   const { rowIndex, colIndex } = state.selectedSlot;
   const termBlock = state.schedule[rowIndex].terms[colIndex];
   const availableCourses = getAvailableCoursesForSlot(rowIndex, colIndex);
-  const isFull = termBlock.lockedClasses.length >= 4;
-  const canLock = termBlock.pendingCourse && termBlock.pendingInstructor;
 
+  // Build course selection UI
   selectionArea.innerHTML = `
     <h2>Course Selection</h2>
     <p>${state.schedule[rowIndex].year} ${termBlock.term}</p>
-    <p>${termBlock.lockedClasses.length} of 4 classes locked in this cell.</p>
 
-    <div>
-      <strong>Locked classes:</strong>
-      ${
-        termBlock.lockedClasses.length > 0
-          ? `<ul>
-              ${termBlock.lockedClasses
-                .map(
-                  (item) =>
-                    `<li>${item.course.subject} ${item.course.number} - ${item.instructor.name}</li>`
-                )
-                .join("")}
-            </ul>`
-          : `<p>No classes locked in this cell.</p>`
-      }
-    </div>
+    <label for="course-select">Course:</label>
+    <select id="course-select" data-row="${rowIndex}" data-col="${colIndex}">
+      <option value="">Select Course</option>
+      ${availableCourses
+        .map((course) => {
+          const key = getCourseKey(course);
+          const selected =
+            termBlock.course && getCourseKey(termBlock.course) === key
+              ? "selected"
+              : "";
 
-    ${
-      termBlock.pendingCourse
-        ? `
-          <p>
-            <strong>Currently choosing:</strong>
-            ${termBlock.pendingCourse.subject} ${termBlock.pendingCourse.number}
-            ${
-              termBlock.pendingInstructor
-                ? `with ${termBlock.pendingInstructor.name}`
-                : "(choose an instructor to the right of the grid)"
-            }
-          </p>
-        `
-        : ""
-    }
-
-    ${
-      !isFull && !termBlock.pendingCourse
-        ? `
-          <label for="course-select">Add Course:</label>
-          <select id="course-select" data-row="${rowIndex}" data-col="${colIndex}">
-            <option value="">Select Course</option>
-            ${availableCourses
-              .map((course) => {
-                const key = getCourseKey(course);
-
-                return `
-                  <option value="${key}">
-                    ${course.subject} ${course.number} - ${course.title}
-                  </option>
-                `;
-              })
-              .join("")}
-          </select>
-        `
-        : ""
-    }
-
-    ${isFull ? `<p>This cell already has 4 classes.</p>` : ""}
-
-    ${
-      termBlock.pendingCourse
-        ? `
-          <button id="lock-class-btn" type="button" data-row="${rowIndex}" data-col="${colIndex}" ${
-            canLock ? "" : "disabled"
-          }>
-            Lock In Class
-          </button>
-
-          <button id="clear-pending-btn" type="button" data-row="${rowIndex}" data-col="${colIndex}">
-            Cancel Current Class
-          </button>
-        `
-        : ""
-    }
+          return `
+            <option value="${key}" ${selected}>
+              ${course.subject} ${course.number} - ${course.title}
+            </option>
+          `;
+        })
+        .join("")}
+    </select>
 
     <button id="clear-course-btn" type="button" data-row="${rowIndex}" data-col="${colIndex}">
       Clear Cell
     </button>
+
+    <div id="instructor-panel"></div>
   `;
+
+  // If a course is already selected, show instructor options
+  if (termBlock.course) {
+    renderInstructorPanel(rowIndex, colIndex);
+  }
 }
 
+// Render instructor radio buttons and grade distribution numbers for a selected course
 async function renderInstructorPanel(rowIndex, colIndex) {
   const termBlock = state.schedule[rowIndex].terms[colIndex];
+  const panel = document.getElementById("instructor-panel");
 
-  if (!termBlock.pendingCourse) {
-    renderInstructorPanelPlaceholder();
+  // Do nothing if panel is missing or no course is selected
+  if (!panel || !termBlock.course) {
     return;
   }
 
-  const instructors = await fetchCourseInstructors(termBlock.pendingCourse);
+  // Fetch instructor data for the selected course
+  const instructors = await fetchCourseInstructors(termBlock.course);
 
-  els.instructorPanel.innerHTML = `
-    <h2>Instructor Selection</h2>
+  // Build instructor selection UI
+  panel.innerHTML = `
+    <h3>${termBlock.course.subject} ${termBlock.course.number}</h3>
+    <p>${termBlock.course.title}</p>
 
-    <h3>${termBlock.pendingCourse.subject} ${termBlock.pendingCourse.number}</h3>
-    <p>${termBlock.pendingCourse.title}</p>
+    <h4>Instructor Selection</h4>
 
     ${instructors
       .map((instructor) => {
         const selected =
-          termBlock.pendingInstructor && termBlock.pendingInstructor.crn === instructor.crn
+          termBlock.instructor && termBlock.instructor.crn === instructor.crn
             ? "checked"
             : "";
 
@@ -473,37 +445,35 @@ async function renderInstructorPanel(rowIndex, colIndex) {
       .join("")}
   `;
 
-  els.instructorPanel.dataset.instructors = JSON.stringify(instructors);
+  // Store instructor data on the panel so it can be reused when a radio button changes
+  panel.dataset.instructors = JSON.stringify(instructors);
 }
 
+// Find a required course object using its generated course key
 function findRequiredCourseByKey(courseKey) {
   return state.requiredCourses.find((course) => getCourseKey(course) === courseKey);
 }
 
+// Reset the generated student plan and related UI
 function resetStudentPlan() {
   state.schedule = [];
   state.requiredCourses = [];
   state.selectedSlot = null;
-
   els.grid.innerHTML = "";
-  hideInstructorPanel();
   els.sidePanel.innerHTML = "";
-
   els.sidePanel.classList.add("collapsed");
-
-  const selectionArea = document.getElementById("selection-area");
-  if (selectionArea) {
-    selectionArea.innerHTML = "";
-  }
 }
 
+// Handle clicks on the Student/Admin selection buttons
 function handleUserSelectClick(event) {
   const button = event.target.closest("[data-user-type]");
   if (!button) return;
 
+  // Store selected user type
   state.userType = button.dataset.userType;
   resetStudentPlan();
 
+  // Render the correct UI based on selected user type
   if (state.userType === "student") {
     state.sidePanelOpen = true;
     renderControls();
@@ -512,27 +482,34 @@ function handleUserSelectClick(event) {
   }
 }
 
+// Handle dropdown changes in the controls area
 function handleControlsChange(event) {
+  // Update selected major and reset any generated plan
   if (event.target.id === "major-select") {
     state.selectedMajor = event.target.value;
     resetStudentPlan();
     renderControls();
   }
 
+  // Update selected start year
   if (event.target.id === "start-year") {
     state.startYear = event.target.value;
   }
 
+  // Update selected end year
   if (event.target.id === "end-year") {
     state.endYear = event.target.value;
   }
 }
 
+// Handle button clicks in the controls area
 function handleControlsClick(event) {
+  // Generate a plan when the generate button is clicked
   if (event.target.id === "generate-btn") {
     generateGridFromSelection();
   }
 
+  // Toggle the side panel open or closed
   if (event.target.id === "toggle-side-panel-btn") {
     state.sidePanelOpen = !state.sidePanelOpen;
     renderControls();
@@ -540,152 +517,96 @@ function handleControlsClick(event) {
   }
 }
 
+// Handle clicks inside the schedule grid
 function handleGridClick(event) {
   const button = event.target.closest(".cell-btn");
   if (!button) return;
 
+  // Store the clicked grid cell as the selected slot
   state.selectedSlot = {
     rowIndex: Number(button.dataset.row),
     colIndex: Number(button.dataset.col)
   };
 
   renderSelectionArea();
-  renderGraphPanel();
-  renderInstructorPanelArea();
 }
 
-function handleSelectionAreaChange(event) {
+// Handle dropdown and radio button changes inside the grid area
+function handleGridChange(event) {
+  // Handle course selection changes
   if (event.target.id === "course-select") {
     const rowIndex = Number(event.target.dataset.row);
     const colIndex = Number(event.target.dataset.col);
     const selectedCourseKey = event.target.value;
 
-    if (!selectedCourseKey) return;
-
     const termBlock = state.schedule[rowIndex].terms[colIndex];
 
-    if (termBlock.lockedClasses.length >= 4) {
-      alert("You can only add up to 4 classes per cell.");
-      event.target.value = "";
-      return;
-    }
+    // Assign selected course to the grid cell, or clear it if blank
+    termBlock.course = selectedCourseKey
+      ? findRequiredCourseByKey(selectedCourseKey)
+      : null;
 
-    const selectedCourse = findRequiredCourseByKey(selectedCourseKey);
+    // Clear instructor selection whenever the course changes
+    termBlock.instructor = null;
 
-    if (!selectedCourse) return;
-
-    termBlock.pendingCourse = selectedCourse;
-    termBlock.pendingInstructor = null;
-
+    // Re-render grid and keep the same slot selected
     renderGrid();
     state.selectedSlot = { rowIndex, colIndex };
     renderSelectionArea();
-    renderGraphPanel();
-    renderInstructorPanelArea();
   }
-}
 
-function handleInstructorPanelChange(event) {
+  // Handle instructor radio button selection
   if (event.target.name === "instructor") {
     const rowIndex = Number(event.target.dataset.row);
     const colIndex = Number(event.target.dataset.col);
-    const instructors = JSON.parse(els.instructorPanel.dataset.instructors || "[]");
+    const instructorPanel = document.getElementById("instructor-panel");
+    const instructors = JSON.parse(instructorPanel.dataset.instructors || "[]");
 
+    // Find the instructor object matching the selected radio button
     const selectedInstructor = instructors.find(
       (instructor) => instructor.crn === event.target.value
     );
 
-    state.schedule[rowIndex].terms[colIndex].pendingInstructor = selectedInstructor;
-
-    renderSelectionArea();
+    // Store selected instructor in the schedule
+    state.schedule[rowIndex].terms[colIndex].instructor = selectedInstructor;
   }
 }
 
-function handleSelectionAreaClick(event) {
-  if (event.target.id === "lock-class-btn") {
-    const rowIndex = Number(event.target.dataset.row);
-    const colIndex = Number(event.target.dataset.col);
-    const termBlock = state.schedule[rowIndex].terms[colIndex];
-
-    if (!termBlock.pendingCourse || !termBlock.pendingInstructor) {
-      alert("Please choose both a course and an instructor before locking in the class.");
-      return;
-    }
-
-    if (termBlock.lockedClasses.length >= 4) {
-      alert("You can only add up to 4 classes per cell.");
-      return;
-    }
-
-    termBlock.lockedClasses.push({
-      course: termBlock.pendingCourse,
-      instructor: termBlock.pendingInstructor
-    });
-
-    termBlock.pendingCourse = null;
-    termBlock.pendingInstructor = null;
-
-    renderGrid();
-    state.selectedSlot = { rowIndex, colIndex };
-    renderSelectionArea();
-    renderGraphPanel();
-    renderInstructorPanelArea();
-  }
-
-  if (event.target.id === "clear-pending-btn") {
-    const rowIndex = Number(event.target.dataset.row);
-    const colIndex = Number(event.target.dataset.col);
-    const termBlock = state.schedule[rowIndex].terms[colIndex];
-
-    termBlock.pendingCourse = null;
-    termBlock.pendingInstructor = null;
-
-    renderGrid();
-    state.selectedSlot = { rowIndex, colIndex };
-    renderSelectionArea();
-    renderGraphPanel();
-    renderInstructorPanelArea();
-  }
-
+// Handle button clicks inside the grid area
+function handleGridButtonClick(event) {
+  // Clear the selected course and instructor from a cell
   if (event.target.id === "clear-course-btn") {
     const rowIndex = Number(event.target.dataset.row);
     const colIndex = Number(event.target.dataset.col);
-    const termBlock = state.schedule[rowIndex].terms[colIndex];
 
-    termBlock.lockedClasses = [];
-    termBlock.pendingCourse = null;
-    termBlock.pendingInstructor = null;
+    state.schedule[rowIndex].terms[colIndex].course = null;
+    state.schedule[rowIndex].terms[colIndex].instructor = null;
 
+    // Re-render grid and keep the same slot selected
     renderGrid();
     state.selectedSlot = { rowIndex, colIndex };
     renderSelectionArea();
-    renderGraphPanel();
-    renderInstructorPanelArea();
   }
 }
 
+// Attach event listeners using event delegation
 function attachEvents() {
-  const selectionArea = document.getElementById("selection-area");
-
   els.userSelect.addEventListener("click", handleUserSelectClick);
   els.controls.addEventListener("change", handleControlsChange);
   els.controls.addEventListener("click", handleControlsClick);
   els.grid.addEventListener("click", handleGridClick);
-  els.instructorPanel.addEventListener("change", handleInstructorPanelChange);
-
-  if (selectionArea) {
-    selectionArea.addEventListener("change", handleSelectionAreaChange);
-    selectionArea.addEventListener("click", handleSelectionAreaClick);
-  }
+  els.grid.addEventListener("change", handleGridChange);
+  els.grid.addEventListener("click", handleGridButtonClick);
 }
 
+// Initialize the application after the page loads
 async function init() {
   cacheElements();
   state.majors = await fetchMajors();
   renderUserSelect();
   attachEvents();
   els.sidePanel.classList.add("collapsed");
-  hideInstructorPanel();
 }
 
+// Start the app once the DOM is fully loaded
 window.addEventListener("DOMContentLoaded", init);

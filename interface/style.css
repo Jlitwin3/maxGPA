@@ -6,14 +6,13 @@
   cursor: pointer;
   font-size: 16px;
 }
-
 .row {
   display: flex;
 }
 
 .cell {
-  width: 120px;
-  height: 90px;
+  width: 80px;
+  height: 40px;
   border: 1px solid black;
   display: flex;
   align-items: center;
@@ -22,29 +21,11 @@
 
 #app {
   display: flex;
-  align-items: flex-start;
   gap: 16px;
 }
 
 #main-content {
   flex: 1;
-}
-
-#main-layout {
-  display: flex;
-  align-items: flex-start;
-  gap: 20px;
-}
-
-#grid {
-  flex-shrink: 0;
-}
-
-#instructor-panel {
-  width: 260px;
-  min-height: 200px;
-  border: 1px solid black;
-  padding: 12px;
 }
 
 #side-panel {
@@ -54,9 +35,5 @@
 }
 
 #side-panel.collapsed {
-  display: none;
-}
-
-.hidden {
   display: none;
 }

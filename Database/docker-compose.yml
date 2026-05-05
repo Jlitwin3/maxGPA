@@ -1,0 +1,15 @@
+services:
+  db:
+    image: mongo:4.4
+    ports:
+      - "27017:27017"
+
+  maxgpa-service:
+    build: .
+    command: python -u db.py --debug
+    ports:
+      - "5000:5000" # host:container
+    environment:
+      - DB_PORT_27017_TCP_ADDR=db
+    depends_on:
+      - db
