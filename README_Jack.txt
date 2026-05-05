@@ -119,3 +119,14 @@ flask
 pymongo
 matplotlib
 Do pip install -r requirements.txt
+
+
+AI Usage for my section:
+- Questioned AI about various logic throughout the project when I was stuck
+- What kind of calls I could make and how to use libraries that were new to me, namley:
+    - some sections of matplotlib,use("Agg") 
+    - io, os, pyMongo during database implementation (database fairly new to me)
+    - base64 when encoding png to json
+- For testing my logic.py file I had AI write some test cases to make sure everything was
+  working properly
+- help with routing logic files in flask file app.py
