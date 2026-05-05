@@ -63,8 +63,8 @@ def get_required_courses(major: str) -> list[dict]:
         for num in numbers:
             courses.append({
                 "subject": subj,
-                "number":  num,
-                "key":     f"{subj}-{num}",})
+                "number": num,
+                "key": f"{subj}-{num}",})
     return courses
 
 
@@ -89,7 +89,7 @@ def get_term_codes_in_range(start_ay: str, end_ay: str) -> list[int]:
     Returns the term codes for all within the given ay range inclusively, calls above function
     """
     start_year = int(start_ay[2:])
-    end_year   = int(end_ay[2:])
+    end_year = int(end_ay[2:])
 
     codes = []
     for year_short in range(start_year, end_year + 1):
@@ -264,7 +264,7 @@ def generate_all_graphs_for_course(major: str, subject: str, number: str, start_
     {"instructor": "All Instructors", "graph": "<base64 png>"}
     jsonify() in flask the frontend go over it to render each <img> in the list
     """
-    course_id   = f"{subject} {number}"
+    course_id = f"{subject} {number}"
     instructors = get_instructors_for_course(major, subject, number, start_ay, end_ay)
 
     graphs = []
@@ -351,6 +351,7 @@ def get_full_major_report(major: str, start_ay: str, end_ay: str) -> dict:
  
 
 if __name__ == "__main__":
+    #AI test cases for a few of my functions:
     import base64 as _b64
 
     # ── fake data that mirrors what Dennis's DB would return ──────────────────
