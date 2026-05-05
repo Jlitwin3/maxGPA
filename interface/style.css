@@ -1,22 +1,37 @@
 .cell-btn {
   width: 100%;
-  height: 100%;
-  border: none;
+  min-height: 28px;
+  border: 1px solid transparent;
   background: none;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 13px;
+  line-height: 1.2;
 }
+
+.cell-btn.selected {
+  border-color: black;
+  background: #eeeeee;
+}
+
 .row {
   display: flex;
 }
 
 .cell {
-  width: 80px;
-  height: 40px;
+  width: 120px;
+  min-height: 120px;
   border: 1px solid black;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
+  padding: 4px;
+}
+
+.header-row .cell,
+.year-cell {
+  min-height: 40px;
 }
 
 #app {

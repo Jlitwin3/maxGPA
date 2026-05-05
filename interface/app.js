@@ -1,5 +1,6 @@
 // Constant list of academic terms used to build the schedule grid
 const TERMS = ["Fall", "Winter", "Spring", "Summer"];
+const MAX_COURSES_PER_TERM = 4;
 const API_BASE = window.location.protocol === "file:" ? "http://localhost:5000" : "";
 
 // Global application state object
@@ -210,8 +211,7 @@ async function generateGridFromSelection() {
     year,
     terms: TERMS.map((term) => ({
       term,
-      course: null,
-      instructor: null
+      courseSlots: createEmptyCourseSlots()
     }))
   }));
 
@@ -264,15 +264,37 @@ function renderGrid() {
 
     // Add one cell for each term in the year
     yearBlock.terms.forEach((termBlock, colIndex) => {
-      const label = termBlock.course
-        ? `${termBlock.course.subject} ${termBlock.course.number}`
-        : "+";
+      const courseSlots = getTermCourseSlots(termBlock);
 
       html += `
         <div class="cell">
-          <button class="cell-btn" type="button" data-row="${rowIndex}" data-col="${colIndex}">
-            ${label}
-          </button>
+          ${courseSlots
+            .map((courseSlot, courseIndex) => {
+              const label = courseSlot.course
+                ? `${courseSlot.course.subject} ${courseSlot.course.number}`
+                : "+";
+              const selected =
+                state.selectedSlot &&
+                state.selectedSlot.rowIndex === rowIndex &&
+                state.selectedSlot.colIndex === colIndex &&
+                state.selectedSlot.courseIndex === courseIndex
+                  ? " selected"
+                  : "";
+
+              return `
+                <button
+                  class="cell-btn${selected}"
+                  type="button"
+                  data-row="${rowIndex}"
+                  data-col="${colIndex}"
+                  data-course-index="${courseIndex}"
+                  aria-label="${yearBlock.year} ${termBlock.term} course ${courseIndex + 1}"
+                >
+                  ${label}
+                </button>
+              `;
+            })
+            .join("")}
         </div>
       `;
     });
@@ -324,7 +346,7 @@ function renderGraphPanel() {
   els.sidePanel.classList.remove("collapsed");
 
   const selectedCourse = state.selectedSlot
-    ? state.schedule[state.selectedSlot.rowIndex].terms[state.selectedSlot.colIndex].course
+    ? getSelectedCourseSlot().course
     : null;
 
   if (!selectedCourse) {
@@ -362,13 +384,43 @@ function getScheduledCourseKeys() {
   // Walk through every scheduled term and collect selected courses
   state.schedule.forEach((yearBlock) => {
     yearBlock.terms.forEach((termBlock) => {
-      if (termBlock.course) {
-        keys.add(getCourseKey(termBlock.course));
-      }
+      getTermCourseSlots(termBlock).forEach((courseSlot) => {
+        if (courseSlot.course) {
+          keys.add(getCourseKey(courseSlot.course));
+        }
+      });
     });
   });
 
   return keys;
+}
+
+function createEmptyCourseSlot() {
+  return {
+    course: null,
+    instructor: null
+  };
+}
+
+function createEmptyCourseSlots() {
+  return Array.from({ length: MAX_COURSES_PER_TERM }, createEmptyCourseSlot);
+}
+
+function getTermCourseSlots(termBlock) {
+  if (!termBlock.courseSlots) {
+    termBlock.courseSlots = createEmptyCourseSlots();
+  }
+
+  while (termBlock.courseSlots.length < MAX_COURSES_PER_TERM) {
+    termBlock.courseSlots.push(createEmptyCourseSlot());
+  }
+
+  return termBlock.courseSlots;
+}
+
+function getSelectedCourseSlot() {
+  const { rowIndex, colIndex, courseIndex } = state.selectedSlot;
+  return getTermCourseSlots(state.schedule[rowIndex].terms[colIndex])[courseIndex];
 }
 
 // Build a unique key for a course using subject and course number
@@ -379,7 +431,10 @@ function getCourseKey(course) {
 // Return the courses that are still available for a selected grid slot
 function getAvailableCoursesForSlot(rowIndex, colIndex) {
   const scheduledKeys = getScheduledCourseKeys();
-  const currentCourse = state.schedule[rowIndex].terms[colIndex].course;
+  const courseIndex = state.selectedSlot ? state.selectedSlot.courseIndex : 0;
+  const currentCourse = getTermCourseSlots(state.schedule[rowIndex].terms[colIndex])[
+    courseIndex
+  ].course;
   const currentKey = currentCourse ? getCourseKey(currentCourse) : null;
 
   // Exclude already scheduled courses, except the course currently in this slot
@@ -395,23 +450,24 @@ function renderCourseSelector() {
   if (!selectionArea || !state.selectedSlot) return;
 
   // Get selected grid position
-  const { rowIndex, colIndex } = state.selectedSlot;
+  const { rowIndex, colIndex, courseIndex } = state.selectedSlot;
   const termBlock = state.schedule[rowIndex].terms[colIndex];
+  const courseSlot = getSelectedCourseSlot();
   const availableCourses = getAvailableCoursesForSlot(rowIndex, colIndex);
 
   // Build course selection UI
   selectionArea.innerHTML = `
     <h2>Course Selection</h2>
-    <p>${state.schedule[rowIndex].year} ${termBlock.term}</p>
+    <p>${state.schedule[rowIndex].year} ${termBlock.term} - Course ${courseIndex + 1} of ${MAX_COURSES_PER_TERM}</p>
 
     <label for="course-select">Course:</label>
-    <select id="course-select" data-row="${rowIndex}" data-col="${colIndex}">
+    <select id="course-select" data-row="${rowIndex}" data-col="${colIndex}" data-course-index="${courseIndex}">
       <option value="">Select Course</option>
       ${availableCourses
         .map((course) => {
           const key = getCourseKey(course);
           const selected =
-            termBlock.course && getCourseKey(termBlock.course) === key
+            courseSlot.course && getCourseKey(courseSlot.course) === key
               ? "selected"
               : "";
 
@@ -424,43 +480,43 @@ function renderCourseSelector() {
         .join("")}
     </select>
 
-    <button id="clear-course-btn" type="button" data-row="${rowIndex}" data-col="${colIndex}">
-      Clear Cell
+    <button id="clear-course-btn" type="button" data-row="${rowIndex}" data-col="${colIndex}" data-course-index="${courseIndex}">
+      Clear Course
     </button>
 
     <div id="instructor-panel"></div>
   `;
 
   // If a course is already selected, show instructor options
-  if (termBlock.course) {
+  if (courseSlot.course) {
     renderInstructorPanel(rowIndex, colIndex);
   }
 }
 
 // Render instructor radio buttons and grade distribution numbers for a selected course
 async function renderInstructorPanel(rowIndex, colIndex) {
-  const termBlock = state.schedule[rowIndex].terms[colIndex];
+  const courseSlot = getSelectedCourseSlot();
   const panel = document.getElementById("instructor-panel");
 
   // Do nothing if panel is missing or no course is selected
-  if (!panel || !termBlock.course) {
+  if (!panel || !courseSlot.course) {
     return;
   }
 
   // Fetch instructor data for the selected course
-  const instructors = await fetchCourseInstructors(termBlock.course);
+  const instructors = await fetchCourseInstructors(courseSlot.course);
 
   // Build instructor selection UI
   panel.innerHTML = `
-    <h3>${termBlock.course.subject} ${termBlock.course.number}</h3>
-    <p>${termBlock.course.title}</p>
+    <h3>${courseSlot.course.subject} ${courseSlot.course.number}</h3>
+    <p>${courseSlot.course.title}</p>
 
     <h4>Instructor Selection</h4>
 
     ${instructors
       .map((instructor) => {
         const selected =
-          termBlock.instructor && termBlock.instructor.crn === instructor.crn
+          courseSlot.instructor && courseSlot.instructor.crn === instructor.crn
             ? "checked"
             : "";
 
@@ -472,6 +528,7 @@ async function renderInstructorPanel(rowIndex, colIndex) {
               value="${instructor.crn}"
               data-row="${rowIndex}"
               data-col="${colIndex}"
+              data-course-index="${state.selectedSlot.courseIndex}"
               ${selected}
             >
             ${instructor.name}
@@ -579,9 +636,11 @@ function handleGridClick(event) {
   // Store the clicked grid cell as the selected slot
   state.selectedSlot = {
     rowIndex: Number(button.dataset.row),
-    colIndex: Number(button.dataset.col)
+    colIndex: Number(button.dataset.col),
+    courseIndex: Number(button.dataset.courseIndex)
   };
 
+  renderGrid();
   renderSelectionArea();
   renderGraphPanel();
 }
@@ -592,21 +651,24 @@ function handleGridChange(event) {
   if (event.target.id === "course-select") {
     const rowIndex = Number(event.target.dataset.row);
     const colIndex = Number(event.target.dataset.col);
+    const courseIndex = Number(event.target.dataset.courseIndex);
     const selectedCourseKey = event.target.value;
 
-    const termBlock = state.schedule[rowIndex].terms[colIndex];
+    const courseSlot = getTermCourseSlots(state.schedule[rowIndex].terms[colIndex])[
+      courseIndex
+    ];
 
     // Assign selected course to the grid cell, or clear it if blank
-    termBlock.course = selectedCourseKey
+    courseSlot.course = selectedCourseKey
       ? findRequiredCourseByKey(selectedCourseKey)
       : null;
 
     // Clear instructor selection whenever the course changes
-    termBlock.instructor = null;
+    courseSlot.instructor = null;
 
     // Re-render grid and keep the same slot selected
+    state.selectedSlot = { rowIndex, colIndex, courseIndex };
     renderGrid();
-    state.selectedSlot = { rowIndex, colIndex };
     renderSelectionArea();
     renderGraphPanel();
   }
@@ -615,6 +677,7 @@ function handleGridChange(event) {
   if (event.target.name === "instructor") {
     const rowIndex = Number(event.target.dataset.row);
     const colIndex = Number(event.target.dataset.col);
+    const courseIndex = Number(event.target.dataset.courseIndex);
     const instructorPanel = document.getElementById("instructor-panel");
     const instructors = JSON.parse(instructorPanel.dataset.instructors || "[]");
 
@@ -624,7 +687,9 @@ function handleGridChange(event) {
     );
 
     // Store selected instructor in the schedule
-    state.schedule[rowIndex].terms[colIndex].instructor = selectedInstructor;
+    getTermCourseSlots(state.schedule[rowIndex].terms[colIndex])[
+      courseIndex
+    ].instructor = selectedInstructor;
     renderGraphPanel();
   }
 }
@@ -635,13 +700,15 @@ function handleGridButtonClick(event) {
   if (event.target.id === "clear-course-btn") {
     const rowIndex = Number(event.target.dataset.row);
     const colIndex = Number(event.target.dataset.col);
+    const courseIndex = Number(event.target.dataset.courseIndex);
 
-    state.schedule[rowIndex].terms[colIndex].course = null;
-    state.schedule[rowIndex].terms[colIndex].instructor = null;
+    getTermCourseSlots(state.schedule[rowIndex].terms[colIndex])[
+      courseIndex
+    ] = createEmptyCourseSlot();
 
     // Re-render grid and keep the same slot selected
+    state.selectedSlot = { rowIndex, colIndex, courseIndex };
     renderGrid();
-    state.selectedSlot = { rowIndex, colIndex };
     renderSelectionArea();
     renderGraphPanel();
   }
