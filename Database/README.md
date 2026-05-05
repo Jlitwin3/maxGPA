@@ -16,7 +16,7 @@ document {
 where each instructor entry looks like this: 
 instructor_entry = {"crn": crn, "name": instructor, "grades": grade_dist}
 
-for a practical example: in the pub_rec_master_f2015-u2025.csv file provided by the instructors, a particular series of lines that would be added to both the CS major as well as the MATH major looks as follows:
+for a practical example: in the pub_rec_master_f2015-u2025.csv file provided by the instructors, a particular series of lines that would be added to both the CS major as well as the MATH major is as follows:
 
 202203,Spring 2023,MATH,252,33730,"Hu, Yang ",0,4,6,3,3,2,1,0,2,0,0,0,1,0,0,0,3,22
 202203,Spring 2023,MATH,252,33731,"Dunn, Francis Charles",0,2,2,1,4,2,0,4,2,0,3,1,2,0,0,0,0,23
@@ -47,5 +47,5 @@ in db.py, using a key that matches TERM, SUBJ, and NUMB (in this case, (202203, 
 
 *i combined all of the letter grades in my head while writing this so the actual numbers might accidentally be off. either way ideally the structure still gets across.
 
-this is an extreme example that includes a lot of professors to show the most hectic a single document might look; most classes only tend to have one or two professors that teach it in any given term. the functions to parse all of this data are fully written, and parsing the csv file mentioned above only took about a second. i have left a multitude of comments in the db.py file that should hopefully communicate exactly what each function is doing.
+this is an extreme example that includes a lot of professors to show the most hectic a single document might look; most classes only tend to have one or two professors that teach it in any given term. the functions to parse all of this data are fully written, and parsing the csv file mentioned above only took about half a second. i have left a multitude of comments in the db.py file that should hopefully communicate exactly what each function is doing.
 

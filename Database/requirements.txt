@@ -1,7 +1,2 @@
-arrow
 Flask
-flask-restful
-pep8
-autopep8
 pymongo
-
